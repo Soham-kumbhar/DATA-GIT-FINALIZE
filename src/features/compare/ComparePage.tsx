@@ -39,17 +39,6 @@ function formatNumber(value: unknown): string {
   }).format(value);
 }
 
-function formatPercent(value: unknown): string {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value)
-  ) {
-    return '—';
-  }
-
-  return `${(value * 100).toFixed(2)}%`;
-}
-
 function shortCommit(
   value: string | null | undefined,
 ): string {
@@ -60,25 +49,6 @@ function shortCommit(
   return value.length > 12
     ? `${value.slice(0, 12)}…`
     : value;
-}
-
-function formatDate(
-  value: unknown,
-): string {
-  if (
-    typeof value !== 'string' &&
-    typeof value !== 'number'
-  ) {
-    return '—';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleString();
 }
 
 function getDvcLabel(
@@ -105,28 +75,6 @@ function objectEntries(
   return isRecord(value)
     ? Object.entries(value)
     : [];
-}
-
-function getProfileValue(
-  profile: CompareDatasetProfile | null | undefined,
-  key: keyof CompareDatasetProfile,
-): unknown {
-  return profile?.[key];
-}
-
-function sameArray(
-  a: string[] | undefined,
-  b: string[] | undefined,
-): boolean {
-  if (!a || !b) {
-    return false;
-  }
-
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  return a.every((value, index) => value === b[index]);
 }
 
 function EvidenceValue({
@@ -445,12 +393,6 @@ export default function ComparePage() {
     versionBId,
   ]);
 
-  const selectedProject =
-    projects.find(
-      (project) =>
-        project.id === selectedProjectId,
-    ) ?? null;
-
   const selectedVersionA =
     versions.find(
       (version) =>
@@ -545,7 +487,7 @@ export default function ComparePage() {
 
   const hasAIInterpretation =
     comparison?.ai_insights?.status ===
-    'success' &&
+      'success' &&
     Boolean(
       comparison.ai_insights.root_cause
         ?.summary,
@@ -1595,7 +1537,7 @@ export default function ComparePage() {
                     comparison.ai_insights
                       ?.root_cause
                       ?.overall_confidence ??
-                      'LOW'
+                    'LOW'
                   }
                 </div>
 
