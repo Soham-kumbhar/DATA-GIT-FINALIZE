@@ -7,7 +7,6 @@ import {
 } from './compareApi';
 
 import type {
-  CompareDatasetProfile,
   ComparePayload,
   CompareRecommendation,
 } from './compareApi';
