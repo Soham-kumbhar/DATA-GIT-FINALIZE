@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import {
   getReportProjects,
@@ -20,8 +19,6 @@ import { ReportDocument } from './components/ReportDocument';
 import './Reports.css';
 
 export default function ReportsPage() {
-  const navigate = useNavigate();
-
   const [projects, setProjects] = useState<ReportProject[]>([]);
   const [latestVersions, setLatestVersions] = useState<
     Record<number, ReportVersion | null>
@@ -242,31 +239,6 @@ export default function ReportsPage() {
     setSelectedProjectId(projectId);
   }
 
-  function handleCreateProject() {
-    navigate('/projects/new');
-  }
-
-  function handleProjectDeleted(projectId: number) {
-    setProjects((current) =>
-      current.filter(
-        (project) => project.id !== projectId,
-      ),
-    );
-
-    setLatestVersions((current) => {
-      const next = { ...current };
-      delete next[projectId];
-      return next;
-    });
-
-    setSelectedProjectId((current) =>
-      current === projectId ? null : current,
-    );
-
-    setVersions([]);
-    setSelectedVersionId(null);
-    setVersionDetail(null);
-  }
 
   function handleBackToProjects() {
     setSelectedProjectId(null);
@@ -305,8 +277,7 @@ export default function ReportsPage() {
           selectedProjectId={selectedProjectId}
           loading={loadingProjects}
           onSelect={handleSelectProject}
-          onCreateProject={handleCreateProject}
-          onDeleted={handleProjectDeleted}
+
         />
       ) : null}
 
@@ -360,3 +331,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+
+

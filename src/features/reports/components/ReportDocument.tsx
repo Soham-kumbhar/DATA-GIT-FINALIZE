@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import type { ReportProject, ReportVersionDetail } from '../types/report';
+import type {
+  ReportProject,
+  ReportVersionDetail,
+} from '../types/report';
 import AIInterpretationPanel from './AIInterpretationPanel';
 import './ReportDocument.css';
 
@@ -21,24 +24,36 @@ function list(raw: unknown): unknown[] {
   return Array.isArray(raw) ? raw : [];
 }
 
-function value(raw: unknown, fallback = 'Not recorded'): string {
+function value(
+  raw: unknown,
+  fallback = 'Not recorded',
+): string {
   if (typeof raw === 'string' && raw.trim()) {
     return raw.trim();
   }
 
-  if (typeof raw === 'number' || typeof raw === 'boolean') {
+  if (
+    typeof raw === 'number' ||
+    typeof raw === 'boolean'
+  ) {
     return String(raw);
   }
 
   return fallback;
 }
 
-function pick(source: unknown, paths: string[]): unknown {
+function pick(
+  source: unknown,
+  paths: string[],
+): unknown {
   for (const path of paths) {
     let current: unknown = source;
 
     for (const part of path.split('.')) {
-      if (!current || typeof current !== 'object') {
+      if (
+        !current ||
+        typeof current !== 'object'
+      ) {
         current = undefined;
         break;
       }
@@ -59,7 +74,10 @@ function pick(source: unknown, paths: string[]): unknown {
 }
 
 function formatDate(raw: unknown): string {
-  if (typeof raw !== 'string' || !raw) {
+  if (
+    typeof raw !== 'string' ||
+    !raw
+  ) {
     return 'Not recorded';
   }
 
@@ -79,7 +97,10 @@ function formatDate(raw: unknown): string {
 }
 
 function shortHash(raw: unknown): string {
-  const hash = value(raw, 'Not recorded');
+  const hash = value(
+    raw,
+    'Not recorded',
+  );
 
   return hash.length > 12
     ? `${hash.slice(0, 10)}…`
@@ -94,22 +115,35 @@ function Status({
   tone?: 'neutral' | 'ok' | 'missing' | 'ai';
 }) {
   return (
-    <span className={`report-status report-status-${tone}`}>
+    <span
+      className={`report-status report-status-${tone}`}
+    >
       {children}
     </span>
   );
 }
 
-function CopyButton({ raw }: { raw: string }) {
-  const [copied, setCopied] = useState(false);
+function CopyButton({
+  raw,
+}: {
+  raw: string;
+}) {
+  const [copied, setCopied] =
+    useState(false);
 
   async function copy() {
-    if (!raw || !navigator.clipboard) {
+    if (
+      !raw ||
+      !navigator.clipboard
+    ) {
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(raw);
+      await navigator.clipboard.writeText(
+        raw,
+      );
+
       setCopied(true);
 
       window.setTimeout(() => {
@@ -188,7 +222,9 @@ function Missing({
 }) {
   return (
     <div className="report-missing">
-      <Status tone="missing">NOT RECORDED</Status>
+      <Status tone="missing">
+        NOT RECORDED
+      </Status>
 
       <strong>{title}</strong>
 
@@ -201,14 +237,19 @@ function checkStatus(
   checks: Dict,
   key: string,
 ): string {
-  return String(checks[key] ?? 'not_recorded').toLowerCase();
+  return String(
+    checks[key] ?? 'not_recorded',
+  ).toLowerCase();
 }
 
 function isRecorded(
   checks: Dict,
   key: string,
 ): boolean {
-  const status = checkStatus(checks, key);
+  const status = checkStatus(
+    checks,
+    key,
+  );
 
   return (
     status === 'recorded' ||
@@ -217,7 +258,9 @@ function isRecorded(
   );
 }
 
-function changedFilePath(raw: unknown): string {
+function changedFilePath(
+  raw: unknown,
+): string {
   const file = dict(raw);
 
   return value(
@@ -229,10 +272,15 @@ function changedFilePath(raw: unknown): string {
   );
 }
 
-function changedFileStatus(raw: unknown): string {
+function changedFileStatus(
+  raw: unknown,
+): string {
   const file = dict(raw);
 
-  return value(file.status, '—');
+  return value(
+    file.status,
+    '—',
+  );
 }
 
 function ReportDocument({
@@ -243,17 +291,27 @@ function ReportDocument({
   /*
    * The backend version report is the source of truth.
    *
-   * IMPORTANT:
-   * Do not reconstruct evidence completeness from the
-   * existence of frontend objects. The backend already
-   * determines which evidence sections are recorded.
+   * Evidence completeness must come from the
+   * backend response rather than being reconstructed
+   * from the existence of frontend objects.
    */
   const rawVersion = dict(version);
 
-  const dataset = dict(rawVersion.dataset);
-  const git = dict(rawVersion.git);
-  const dvc = dict(rawVersion.dvc);
-  const dvcState = dict(rawVersion.dvc_state);
+  const dataset = dict(
+    rawVersion.dataset,
+  );
+
+  const git = dict(
+    rawVersion.git,
+  );
+
+  const dvc = dict(
+    rawVersion.dvc,
+  );
+
+  const dvcState = dict(
+    rawVersion.dvc_state,
+  );
 
   const resultEvidence = dict(
     rawVersion.result_evidence,
@@ -267,9 +325,17 @@ function ReportDocument({
     evidenceCompleteness.checks,
   );
 
-  const model = dict(resultEvidence.model);
-  const metrics = dict(resultEvidence.metrics);
-  const evaluation = dict(resultEvidence.evaluation);
+  const model = dict(
+    resultEvidence.model,
+  );
+
+  const metrics = dict(
+    resultEvidence.metrics,
+  );
+
+  const evaluation = dict(
+    resultEvidence.evaluation,
+  );
 
   const preparation = list(
     pick(rawVersion, [
@@ -286,15 +352,26 @@ function ReportDocument({
       ]),
   );
 
-  const columns = list(dataset.columns);
+  const columns = list(
+    dataset.columns,
+  );
 
-  const datasetFiles = list(dataset.files);
-  const firstDatasetFile = dict(datasetFiles[0]);
+  const datasetFiles = list(
+    dataset.files,
+  );
+
+  const firstDatasetFile = dict(
+    datasetFiles[0],
+  );
+
   const datasetFileDvc = dict(
     firstDatasetFile.dvc,
   );
 
-  const trackedFiles = list(dvc.tracked_files);
+  const trackedFiles = list(
+    dvc.tracked_files,
+  );
+
   const firstTrackedFile = dict(
     trackedFiles[0],
   );
@@ -304,64 +381,67 @@ function ReportDocument({
    */
   const recordedCount =
     typeof evidenceCompleteness.recorded_sections ===
-      'number'
+    'number'
       ? evidenceCompleteness.recorded_sections
       : 0;
 
   const totalCount =
     typeof evidenceCompleteness.total_sections ===
-      'number'
+    'number'
       ? evidenceCompleteness.total_sections
       : 9;
 
-  const completenessStatus = value(
-    evidenceCompleteness.status,
-    recordedCount === totalCount
-      ? 'complete'
-      : recordedCount > 0
-        ? 'partial'
-        : 'not_available',
-  ).toLowerCase();
+  const completenessStatus =
+    value(
+      evidenceCompleteness.status,
+      recordedCount === totalCount
+        ? 'complete'
+        : recordedCount > 0
+          ? 'partial'
+          : 'not_available',
+    ).toLowerCase();
 
-  const datasetRecorded = isRecorded(
-    checks,
-    'dataset',
-  );
+  const datasetRecorded =
+    isRecorded(
+      checks,
+      'dataset',
+    );
 
-  const dataQualityRecorded = isRecorded(
-    checks,
-    'data_quality',
-  );
+  const dataQualityRecorded =
+    isRecorded(
+      checks,
+      'data_quality',
+    );
 
-  const preparationRecorded = isRecorded(
-    checks,
-    'preparation',
-  );
+  const modelRecorded =
+    isRecorded(
+      checks,
+      'model',
+    );
 
-  const modelRecorded = isRecorded(
-    checks,
-    'model',
-  );
+  const metricsRecorded =
+    isRecorded(
+      checks,
+      'metrics',
+    );
 
-  const metricsRecorded = isRecorded(
-    checks,
-    'metrics',
-  );
+  const evaluationRecorded =
+    isRecorded(
+      checks,
+      'evaluation',
+    );
 
-  const evaluationRecorded = isRecorded(
-    checks,
-    'evaluation',
-  );
+  const gitRecorded =
+    isRecorded(
+      checks,
+      'git',
+    );
 
-  const gitRecorded = isRecorded(
-    checks,
-    'git',
-  );
-
-  const dvcRecorded = isRecorded(
-    checks,
-    'dvc',
-  );
+  const dvcRecorded =
+    isRecorded(
+      checks,
+      'dvc',
+    );
 
   const datasetPath = value(
     pick(dataset, [
@@ -380,8 +460,8 @@ function ReportDocument({
   );
 
   /*
-   * DVC hash is nested inside tracked_files in the
-   * authoritative backend response.
+   * DVC hash is nested inside tracked_files
+   * in the authoritative backend response.
    */
   const dvcHash = value(
     firstTrackedFile.md5 ??
@@ -497,45 +577,72 @@ function ReportDocument({
   ] as const;
 
   /*
-   * Evidence Map deliberately follows the backend's
-   * nine-section completeness contract.
+   * Evidence Map follows the backend's nine-section
+   * completeness contract.
    */
   const evidenceMap = [
     [
       'Version identity',
-      checkStatus(checks, 'version_identity'),
+      checkStatus(
+        checks,
+        'version_identity',
+      ),
     ],
     [
       'Dataset',
-      checkStatus(checks, 'dataset'),
+      checkStatus(
+        checks,
+        'dataset',
+      ),
     ],
     [
       'Data quality',
-      checkStatus(checks, 'data_quality'),
+      checkStatus(
+        checks,
+        'data_quality',
+      ),
     ],
     [
       'Preparation',
-      checkStatus(checks, 'preparation'),
+      checkStatus(
+        checks,
+        'preparation',
+      ),
     ],
     [
       'Model evidence',
-      checkStatus(checks, 'model'),
+      checkStatus(
+        checks,
+        'model',
+      ),
     ],
     [
       'Metrics',
-      checkStatus(checks, 'metrics'),
+      checkStatus(
+        checks,
+        'metrics',
+      ),
     ],
     [
       'Evaluation',
-      checkStatus(checks, 'evaluation'),
+      checkStatus(
+        checks,
+        'evaluation',
+      ),
     ],
     [
       'Git provenance',
-      checkStatus(checks, 'git'),
+      checkStatus(
+        checks,
+        'git',
+      ),
     ],
     [
       'DVC provenance',
-      checkStatus(checks, 'dvc'),
+      checkStatus(
+        checks,
+        'dvc',
+      ),
     ],
   ] as const;
 
@@ -546,10 +653,11 @@ function ReportDocument({
         ? 'PARTIAL'
         : 'NOT AVAILABLE';
 
-  const resultEvidenceStatus = value(
-    resultEvidence.status,
-    'not_recorded',
-  ).toUpperCase();
+  const resultEvidenceStatus =
+    value(
+      resultEvidence.status,
+      'not_recorded',
+    ).toUpperCase();
 
   return (
     <article className="report-document">
@@ -563,7 +671,9 @@ function ReportDocument({
             ← VERSION HISTORY
           </button>
 
-          <span>DETAILED VERSION REPORT</span>
+          <span>
+            DETAILED VERSION REPORT
+          </span>
         </div>
 
         <div className="report-hero-grid">
@@ -606,8 +716,8 @@ function ReportDocument({
             </span>
 
             <span>
-              EVIDENCE {recordedCount}/{totalCount}{' '}
-              RECORDED
+              EVIDENCE {recordedCount}/
+              {totalCount} RECORDED
             </span>
           </div>
         </div>
@@ -816,12 +926,17 @@ function ReportDocument({
                 </div>
 
                 <div className="report-card report-column-card">
-                  <span>DATASET COLUMNS</span>
+                  <span>
+                    DATASET COLUMNS
+                  </span>
 
                   <div className="report-column-list">
                     {columns.length ? (
                       columns.map(
-                        (column, index) => (
+                        (
+                          column,
+                          index,
+                        ) => (
                           <div
                             key={`${String(
                               column,
@@ -830,11 +945,16 @@ function ReportDocument({
                             <small>
                               {String(
                                 index + 1,
-                              ).padStart(2, '0')}
+                              ).padStart(
+                                2,
+                                '0',
+                              )}
                             </small>
 
                             <strong>
-                              {value(column)}
+                              {value(
+                                column,
+                              )}
                             </strong>
                           </div>
                         ),
@@ -904,7 +1024,8 @@ function ReportDocument({
                 <Metric
                   label="REPOSITORY"
                   content={
-                    dvc.is_repository === true
+                    dvc.is_repository ===
+                    true
                       ? 'DVC repository'
                       : 'Not recorded'
                   }
@@ -971,11 +1092,16 @@ function ReportDocument({
             </div>
 
             <div className="report-card report-file-list">
-              <span>CHANGED FILES</span>
+              <span>
+                CHANGED FILES
+              </span>
 
               {changedFiles.length ? (
                 changedFiles.map(
-                  (file, index) => (
+                  (
+                    file,
+                    index,
+                  ) => (
                     <div
                       key={`${changedFilePath(
                         file,
@@ -984,7 +1110,10 @@ function ReportDocument({
                       <small>
                         {String(
                           index + 1,
-                        ).padStart(2, '0')}
+                        ).padStart(
+                          2,
+                          '0',
+                        )}
                       </small>
 
                       <strong>
@@ -1002,7 +1131,9 @@ function ReportDocument({
                   ),
                 )
               ) : (
-                <p>Not recorded</p>
+                <p>
+                  Not recorded
+                </p>
               )}
             </div>
           </Section>
@@ -1015,12 +1146,18 @@ function ReportDocument({
             {preparation.length ? (
               <div className="report-card report-list">
                 {preparation.map(
-                  (item, index) => (
+                  (
+                    item,
+                    index,
+                  ) => (
                     <div key={index}>
                       <small>
                         {String(
                           index + 1,
-                        ).padStart(2, '0')}
+                        ).padStart(
+                          2,
+                          '0',
+                        )}
                       </small>
 
                       <pre>
@@ -1049,14 +1186,21 @@ function ReportDocument({
           >
             {modelRecorded ? (
               <div className="report-card-grid report-card-grid-3">
-                {Object.entries(model).map(
+                {Object.entries(
+                  model,
+                ).map(
                   ([key, item]) => (
                     <Metric
                       key={key}
                       label={key
-                        .replaceAll('_', ' ')
+                        .replaceAll(
+                          '_',
+                          ' ',
+                        )
                         .toUpperCase()}
-                      content={value(item)}
+                      content={value(
+                        item,
+                      )}
                     />
                   ),
                 )}
@@ -1076,14 +1220,21 @@ function ReportDocument({
           >
             {metricsRecorded ? (
               <div className="report-card-grid report-card-grid-4">
-                {Object.entries(metrics).map(
+                {Object.entries(
+                  metrics,
+                ).map(
                   ([key, item]) => (
                     <Metric
                       key={key}
                       label={key
-                        .replaceAll('_', ' ')
+                        .replaceAll(
+                          '_',
+                          ' ',
+                        )
                         .toUpperCase()}
-                      content={value(item)}
+                      content={value(
+                        item,
+                      )}
                     />
                   ),
                 )}
@@ -1105,19 +1256,26 @@ function ReportDocument({
               <div className="report-card-grid report-card-grid-3">
                 <Metric
                   label="RESULT EVIDENCE"
-                  content={resultEvidenceStatus}
+                  content={
+                    resultEvidenceStatus
+                  }
                 />
               </div>
             </div>
 
             {evaluationRecorded ? (
               <div className="report-card report-json">
-                {Object.entries(evaluation).map(
+                {Object.entries(
+                  evaluation,
+                ).map(
                   ([key, item]) => (
                     <div key={key}>
                       <span>
                         {key
-                          .replaceAll('_', ' ')
+                          .replaceAll(
+                            '_',
+                            ' ',
+                          )
                           .toUpperCase()}
                       </span>
 
@@ -1143,18 +1301,28 @@ function ReportDocument({
           >
             <div className="report-lineage">
               {[
-                ['PROJECT', project.name],
-                ['DATASET', datasetPath],
+                [
+                  'PROJECT',
+                  project.name,
+                ],
+                [
+                  'DATASET',
+                  datasetPath,
+                ],
                 [
                   'DVC',
                   dvcRecorded
-                    ? shortHash(dvcHash)
+                    ? shortHash(
+                        dvcHash,
+                      )
                     : 'Not recorded',
                 ],
                 [
                   'GIT',
                   gitRecorded
-                    ? shortHash(gitCommit)
+                    ? shortHash(
+                        gitCommit,
+                      )
                     : 'Not recorded',
                 ],
                 [
@@ -1165,7 +1333,11 @@ function ReportDocument({
                   ),
                 ],
               ].map(
-                ([label, item], index, rows) => (
+                (
+                  [label, item],
+                  index,
+                  rows,
+                ) => (
                   <div
                     key={label}
                     className="report-lineage-step"
@@ -1174,12 +1346,19 @@ function ReportDocument({
                       <small>
                         {String(
                           index + 1,
-                        ).padStart(2, '0')}
+                        ).padStart(
+                          2,
+                          '0',
+                        )}
                       </small>
 
-                      <span>{label}</span>
+                      <span>
+                        {label}
+                      </span>
 
-                      <strong>{item}</strong>
+                      <strong>
+                        {item}
+                      </strong>
                     </div>
 
                     {index <
@@ -1221,15 +1400,22 @@ function ReportDocument({
             <div className="report-card report-space-top">
               <div className="report-evidence-map">
                 {evidenceMap.map(
-                  ([label, status]) => {
+                  (
+                    [label, status],
+                  ) => {
                     const recorded =
-                      status === 'recorded' ||
-                      status === 'available' ||
-                      status === 'assessable';
+                      status ===
+                        'recorded' ||
+                      status ===
+                        'available' ||
+                      status ===
+                        'assessable';
 
                     return (
                       <div key={label}>
-                        <span>{label}</span>
+                        <span>
+                          {label}
+                        </span>
 
                         <Status
                           tone={
@@ -1251,10 +1437,11 @@ function ReportDocument({
 
             <div className="report-card report-space-top">
               <p>
-                Missing evidence is reported as
-                not recorded. It is not treated as
-                proof that the corresponding action
-                did not happen.
+                Missing evidence is reported
+                as not recorded. It is not
+                treated as proof that the
+                corresponding action did not
+                happen.
               </p>
             </div>
           </Section>
