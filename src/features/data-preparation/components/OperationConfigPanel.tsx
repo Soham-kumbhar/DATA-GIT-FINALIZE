@@ -1,4 +1,3 @@
-import type { PreparationOperationConfig } from '../types/preparationWorkflow';
 
 interface OperationConfigPanelProps {
   operation: string;

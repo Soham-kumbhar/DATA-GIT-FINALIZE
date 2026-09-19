@@ -1,15 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import {
-  getProjects,
-  type Project,
-} from '../projects/api/projectsApi';
-
-import {
-  finalizeVersion,
-  type Version,
-} from '../projects/api/versionsApi';
 
 import {
   getPreparationFilename,
@@ -76,18 +66,6 @@ function formatDetailValue(
 export function PreparationResultPage() {
   const navigate = useNavigate();
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] =
-    useState<number | null>(null);
-  const [description, setDescription] =
-    useState('');
-  const [finalizing, setFinalizing] =
-    useState(false);
-  const [finalizeError, setFinalizeError] =
-    useState('');
-  const [finalizedVersion, setFinalizedVersion] =
-    useState<Version | null>(null);
-
   const result = useMemo(
     () => loadResult(),
     [],
@@ -105,75 +83,6 @@ export function PreparationResultPage() {
 
   const outputFile =
     result?.output_file ?? 'prepared-dataset.csv';
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProjects() {
-      try {
-        const data = await getProjects();
-
-        if (!active) {
-          return;
-        }
-
-        setProjects(data);
-
-        if (data.length > 0) {
-          setSelectedProjectId(data[0].id);
-        }
-      } catch (error) {
-        if (active) {
-          setFinalizeError(
-            error instanceof Error
-              ? error.message
-              : 'Unable to load DATAGIT projects.',
-          );
-        }
-      }
-    }
-
-    void loadProjects();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function handleFinalizeVersion() {
-    if (
-      selectedProjectId === null ||
-      finalizing ||
-      finalizedVersion !== null
-    ) {
-      return;
-    }
-
-    setFinalizing(true);
-    setFinalizeError('');
-
-    try {
-      const version = await finalizeVersion(
-        selectedProjectId,
-        {
-          description:
-            description.trim() ||
-            `Prepared dataset: ${outputFile}`,
-          preparation_operations: plan,
-        },
-      );
-
-      setFinalizedVersion(version);
-    } catch (error) {
-      setFinalizeError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to finalize DATAGIT version.',
-      );
-    } finally {
-      setFinalizing(false);
-    }
-  }
 
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL?.replace(
@@ -519,82 +428,6 @@ export function PreparationResultPage() {
           overflow-wrap: anywhere;
         }
 
-        .result-finalize-panel {
-          border: 1px solid #30363d;
-          background: #0d1117;
-          padding: 18px;
-          margin-top: 20px;
-        }
-
-        .result-finalize-grid {
-          display: grid;
-          grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.5fr);
-          gap: 12px;
-          align-items: end;
-        }
-
-        .result-finalize-field {
-          display: flex;
-          flex-direction: column;
-          gap: 7px;
-        }
-
-        .result-finalize-label {
-          color: #8b949e;
-          font-size: 10px;
-          letter-spacing: .05em;
-        }
-
-        .result-finalize-input,
-        .result-finalize-select {
-          width: 100%;
-          box-sizing: border-box;
-          border: 1px solid #30363d;
-          background: #161b22;
-          color: #f0f6fc;
-          padding: 9px 10px;
-          font-family: inherit;
-          font-size: 11px;
-        }
-
-        .result-finalize-meta {
-          margin-top: 12px;
-          color: #8b949e;
-          font-size: 10px;
-        }
-
-        .result-finalize-button {
-          margin-top: 14px;
-          border: 1px solid #6e7681;
-          background: #161b22;
-          color: #f0f6fc;
-          padding: 9px 13px;
-          font-family: inherit;
-          font-size: 10px;
-          cursor: pointer;
-        }
-
-        .result-finalize-button:hover {
-          background: #21262d;
-        }
-
-        .result-finalize-button:disabled {
-          opacity: .5;
-          cursor: not-allowed;
-        }
-
-        .result-finalize-error {
-          margin-top: 12px;
-          color: #ff7b72;
-          font-size: 10px;
-        }
-
-        .result-finalize-success {
-          margin-top: 12px;
-          color: #7ee787;
-          font-size: 10px;
-        }
-
         .result-actions {
           display: flex;
           align-items: center;
@@ -900,139 +733,6 @@ export function PreparationResultPage() {
             );
           },
         )}
-      </section>
-
-      <section className="result-section">
-        <div className="result-section-label">
-          FINALIZE DATAGIT VERSION
-        </div>
-
-        <div className="result-finalize-panel">
-          <div className="result-finalize-grid">
-            <div className="result-finalize-field">
-              <label
-                className="result-finalize-label"
-                htmlFor="finalize-project"
-              >
-                DATAGIT PROJECT
-              </label>
-
-              <select
-                id="finalize-project"
-                className="result-finalize-select"
-                value={selectedProjectId ?? ''}
-                disabled={
-                  finalizing ||
-                  finalizedVersion !== null
-                }
-                onChange={(event) => {
-                  const value = Number(
-                    event.target.value,
-                  );
-
-                  setSelectedProjectId(
-                    Number.isInteger(value)
-                      ? value
-                      : null,
-                  );
-                }}
-              >
-                <option value="">
-                  SELECT PROJECT
-                </option>
-
-                {projects.map((project) => (
-                  <option
-                    key={project.id}
-                    value={project.id}
-                  >
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="result-finalize-field">
-              <label
-                className="result-finalize-label"
-                htmlFor="finalize-description"
-              >
-                VERSION MESSAGE
-              </label>
-
-              <input
-                id="finalize-description"
-                className="result-finalize-input"
-                type="text"
-                value={description}
-                disabled={
-                  finalizing ||
-                  finalizedVersion !== null
-                }
-                placeholder={`Prepared dataset: ${outputFile}`}
-                onChange={(event) =>
-                  setDescription(
-                    event.target.value,
-                  )
-                }
-              />
-            </div>
-          </div>
-
-          <div className="result-finalize-meta">
-            Preparation operations to record:{' '}
-            {plan.length}
-            <br />
-            DATAGIT will finalize the selected
-            project's current Git + DVC state.
-          </div>
-
-          <button
-            type="button"
-            className="result-finalize-button"
-            disabled={
-              selectedProjectId === null ||
-              finalizing ||
-              finalizedVersion !== null ||
-              projects.length === 0
-            }
-            onClick={() => {
-              void handleFinalizeVersion();
-            }}
-          >
-            {finalizing
-              ? '> FINALIZING...'
-              : '> FINALIZE DATAGIT VERSION'}
-          </button>
-
-          {finalizeError ? (
-            <div className="result-finalize-error">
-              {finalizeError}
-            </div>
-          ) : null}
-
-          {finalizedVersion ? (
-            <div className="result-finalize-success">
-              DATAGIT V{finalizedVersion.version_number}
-              {' '}created successfully.
-
-              <br />
-
-              <button
-                type="button"
-                className="result-finalize-button"
-                onClick={() =>
-                  navigate(
-                    `/projects/${finalizedVersion.project_id}/versions/${finalizedVersion.id}`,
-                  )
-                }
-              >
-                &gt; OPEN V
-                {finalizedVersion.version_number}
-              </button>
-            </div>
-          ) : null}
-        </div>
       </section>
 
       <div className="result-actions">

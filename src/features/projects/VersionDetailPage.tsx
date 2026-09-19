@@ -13,6 +13,7 @@ export function VersionDetailPage() {
   const [version, setVersion] = useState<Version | null>(
     null,
   );
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +66,7 @@ export function VersionDetailPage() {
       }
     }
 
-    loadVersion();
+    void loadVersion();
 
     return () => {
       active = false;
@@ -123,15 +124,16 @@ export function VersionDetailPage() {
       <div className="page-heading">
         <div>
           <div className="page-kicker">
-            DATA / PROJECTS / VERSION DETAIL
+            PROJECT / VERSION DETAIL
           </div>
 
           <h1>
-            VERSION : V{version.version_number}
+            V{version.version_number}
           </h1>
 
           <div className="page-description">
-            Version evidence, provenance and metadata.
+            Detailed record of this finalized DATAGIT
+            project version.
           </div>
         </div>
 
@@ -151,50 +153,72 @@ export function VersionDetailPage() {
       <div className="version-detail-grid">
         <div className="project-info-panel">
           <div className="info-row">
-            <span className="info-label">VERSION ID</span>
-            <span>{version.id}</span>
-          </div>
+            <span className="info-label">
+              VERSION
+            </span>
 
-          <div className="info-row">
-            <span className="info-label">VERSION</span>
-            <span>V{version.version_number}</span>
-          </div>
-
-          <div className="info-row">
-            <span className="info-label">PROJECT ID</span>
-            <span>{version.project_id}</span>
-          </div>
-
-          <div className="info-row">
-            <span className="info-label">ML RUN</span>
             <span>
-              {version.ml_run_id ?? '—'}
+              V{version.version_number}
             </span>
           </div>
 
           <div className="info-row">
-            <span className="info-label">GIT</span>
-            <span>{version.git_commit || '—'}</span>
+            <span className="info-label">
+              VERSION ID
+            </span>
+
+            <span>{version.id}</span>
           </div>
 
           <div className="info-row">
-            <span className="info-label">CREATED</span>
+            <span className="info-label">
+              PROJECT ID
+            </span>
+
+            <span>{version.project_id}</span>
+          </div>
+
+          <div className="info-row">
+            <span className="info-label">
+              CREATED
+            </span>
+
             <span>
               {new Date(
                 version.created_at,
               ).toLocaleString()}
             </span>
           </div>
+
+          <div className="info-row">
+            <span className="info-label">
+              GIT COMMIT
+            </span>
+
+            <span className="version-commit">
+              {version.git_commit || '—'}
+            </span>
+          </div>
         </div>
 
         <div className="project-description-panel">
           <div className="panel-label">
-            DESCRIPTION
+            VERSION MESSAGE
           </div>
 
           <div className="panel-value">
             {version.description?.trim() ||
-              'No version description provided.'}
+              'No version message provided.'}
+          </div>
+
+          <div className="panel-label version-panel-label">
+            GIT STATE
+          </div>
+
+          <div className="json-block">
+            {version.git_commit
+              ? `Commit: ${version.git_commit}`
+              : 'No Git commit recorded.'}
           </div>
 
           <div className="panel-label version-panel-label">

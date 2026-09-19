@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   getCompareProjects,
@@ -7,10 +11,11 @@ import {
 } from './compareApi';
 
 import type {
-  CompareDatasetProfile,
   ComparePayload,
   CompareRecommendation,
 } from './compareApi';
+
+import AIExplanationPanel from './AIExplanationPanel';
 
 import type {
   ReportProject,
@@ -18,6 +23,7 @@ import type {
 } from '../reports/types/report';
 
 import './Compare.css';
+
 
 function isRecord(
   value: unknown,
@@ -29,17 +35,10 @@ function isRecord(
   );
 }
 
-function formatNumber(value: unknown): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return '—';
-  }
 
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 4,
-  }).format(value);
-}
-
-function formatPercent(value: unknown): string {
+function formatNumber(
+  value: unknown,
+): string {
   if (
     typeof value !== 'number' ||
     !Number.isFinite(value)
@@ -47,8 +46,14 @@ function formatPercent(value: unknown): string {
     return '—';
   }
 
-  return `${(value * 100).toFixed(2)}%`;
+  return new Intl.NumberFormat(
+    'en-US',
+    {
+      maximumFractionDigits: 4,
+    },
+  ).format(value);
 }
+
 
 function shortCommit(
   value: string | null | undefined,
@@ -62,42 +67,34 @@ function shortCommit(
     : value;
 }
 
-function formatDate(
-  value: unknown,
-): string {
-  if (
-    typeof value !== 'string' &&
-    typeof value !== 'number'
-  ) {
-    return '—';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleString();
-}
 
 function getDvcLabel(
-  value: Record<string, unknown> | null | undefined,
+  value:
+    | Record<string, unknown>
+    | null
+    | undefined,
 ): string {
   if (!value) {
     return 'NOT AVAILABLE';
   }
 
-  if (value.is_repository === false) {
+  if (
+    value.is_repository ===
+    false
+  ) {
     return 'NOT DETECTED';
   }
 
-  if (value.is_repository === true) {
+  if (
+    value.is_repository ===
+    true
+  ) {
     return 'PRESENT';
   }
 
   return 'RECORDED';
 }
+
 
 function objectEntries(
   value: unknown,
@@ -107,35 +104,21 @@ function objectEntries(
     : [];
 }
 
-function getProfileValue(
-  profile: CompareDatasetProfile | null | undefined,
-  key: keyof CompareDatasetProfile,
-): unknown {
-  return profile?.[key];
-}
-
-function sameArray(
-  a: string[] | undefined,
-  b: string[] | undefined,
-): boolean {
-  if (!a || !b) {
-    return false;
-  }
-
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  return a.every((value, index) => value === b[index]);
-}
 
 function EvidenceValue({
   value,
 }: {
   value: unknown;
 }) {
-  if (value === null || value === undefined) {
-    return <span className="compare-muted">—</span>;
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return (
+      <span className="compare-muted">
+        —
+      </span>
+    );
   }
 
   if (
@@ -143,15 +126,24 @@ function EvidenceValue({
     typeof value === 'number' ||
     typeof value === 'boolean'
   ) {
-    return <span>{String(value)}</span>;
+    return (
+      <span>
+        {String(value)}
+      </span>
+    );
   }
 
   return (
     <pre className="compare-structured-value">
-      {JSON.stringify(value, null, 2)}
+      {JSON.stringify(
+        value,
+        null,
+        2,
+      )}
     </pre>
   );
 }
+
 
 function EvidenceState({
   children,
@@ -160,11 +152,17 @@ function EvidenceState({
 }) {
   return (
     <div className="compare-evidence-state">
-      <span className="compare-evidence-marker">×</span>
-      <span>{children}</span>
+      <span className="compare-evidence-marker">
+        ×
+      </span>
+
+      <span>
+        {children}
+      </span>
     </div>
   );
 }
+
 
 function MetricRow({
   label,
@@ -180,16 +178,22 @@ function MetricRow({
       <div className="compare-metric-label">
         {label}
       </div>
+
       <div className="compare-metric-value">
         {before}
       </div>
-      <div className="compare-metric-arrow">→</div>
+
+      <div className="compare-metric-arrow">
+        →
+      </div>
+
       <div className="compare-metric-value">
         {after}
       </div>
     </div>
   );
 }
+
 
 function Section({
   number,
@@ -227,37 +231,69 @@ function Section({
   );
 }
 
+
 export default function ComparePage() {
-  const [projects, setProjects] = useState<
+  const [
+    projects,
+    setProjects,
+  ] = useState<
     ReportProject[]
   >([]);
 
-  const [versions, setVersions] = useState<
+  const [
+    versions,
+    setVersions,
+  ] = useState<
     ReportVersion[]
   >([]);
 
-  const [selectedProjectId, setSelectedProjectId] =
-    useState<number | null>(null);
+  const [
+    selectedProjectId,
+    setSelectedProjectId,
+  ] = useState<
+    number | null
+  >(null);
 
-  const [versionAId, setVersionAId] =
-    useState<number | null>(null);
+  const [
+    versionAId,
+    setVersionAId,
+  ] = useState<
+    number | null
+  >(null);
 
-  const [versionBId, setVersionBId] =
-    useState<number | null>(null);
+  const [
+    versionBId,
+    setVersionBId,
+  ] = useState<
+    number | null
+  >(null);
 
-  const [comparison, setComparison] =
-    useState<ComparePayload | null>(null);
+  const [
+    comparison,
+    setComparison,
+  ] = useState<
+    ComparePayload | null
+  >(null);
 
-  const [loadingProjects, setLoadingProjects] =
-    useState(true);
+  const [
+    loadingProjects,
+    setLoadingProjects,
+  ] = useState(true);
 
-  const [loadingVersions, setLoadingVersions] =
-    useState(false);
+  const [
+    loadingVersions,
+    setLoadingVersions,
+  ] = useState(false);
 
-  const [loadingComparison, setLoadingComparison] =
-    useState(false);
+  const [
+    loadingComparison,
+    setLoadingComparison,
+  ] = useState(false);
 
-  const [error, setError] = useState('');
+  const [
+    error,
+    setError,
+  ] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -277,9 +313,13 @@ export default function ComparePage() {
         setProjects(result);
 
         if (result.length > 0) {
-          setSelectedProjectId(result[0].id);
+          setSelectedProjectId(
+            result[0].id,
+          );
         } else {
-          setSelectedProjectId(null);
+          setSelectedProjectId(
+            null,
+          );
         }
       } catch (err) {
         if (!active) {
@@ -293,7 +333,9 @@ export default function ComparePage() {
         );
       } finally {
         if (active) {
-          setLoadingProjects(false);
+          setLoadingProjects(
+            false,
+          );
         }
       }
     }
@@ -305,8 +347,12 @@ export default function ComparePage() {
     };
   }, []);
 
+
   useEffect(() => {
-    if (selectedProjectId === null) {
+    if (
+      selectedProjectId ===
+      null
+    ) {
       setVersions([]);
       setVersionAId(null);
       setVersionBId(null);
@@ -314,7 +360,9 @@ export default function ComparePage() {
       return;
     }
 
-    const projectId = selectedProjectId;
+    const projectId =
+      selectedProjectId;
+
     let active = true;
 
     async function loadVersions() {
@@ -324,33 +372,44 @@ export default function ComparePage() {
         setComparison(null);
 
         const result =
-          await getCompareVersions(projectId);
+          await getCompareVersions(
+            projectId,
+          );
 
         if (!active) {
           return;
         }
 
-        const sorted = [...result].sort(
-          (a, b) =>
-            a.version_number - b.version_number,
-        );
+        const sorted =
+          [...result].sort(
+            (a, b) =>
+              a.version_number -
+              b.version_number,
+          );
 
         setVersions(sorted);
 
         if (sorted.length >= 2) {
           setVersionAId(
-            sorted[sorted.length - 2].id,
+            sorted[
+              sorted.length - 2
+            ].id,
           );
 
           setVersionBId(
-            sorted[sorted.length - 1].id,
+            sorted[
+              sorted.length - 1
+            ].id,
           );
         } else {
           setVersionAId(
-            sorted[0]?.id ?? null,
+            sorted[0]?.id ??
+              null,
           );
 
-          setVersionBId(null);
+          setVersionBId(
+            null,
+          );
         }
       } catch (err) {
         if (!active) {
@@ -368,7 +427,9 @@ export default function ComparePage() {
         );
       } finally {
         if (active) {
-          setLoadingVersions(false);
+          setLoadingVersions(
+            false,
+          );
         }
       }
     }
@@ -378,28 +439,41 @@ export default function ComparePage() {
     return () => {
       active = false;
     };
-  }, [selectedProjectId]);
+  }, [
+    selectedProjectId,
+  ]);
+
 
   useEffect(() => {
     if (
-      selectedProjectId === null ||
+      selectedProjectId ===
+        null ||
       versionAId === null ||
       versionBId === null ||
-      versionAId === versionBId
+      versionAId ===
+        versionBId
     ) {
       setComparison(null);
       return;
     }
 
-    const projectId = selectedProjectId;
-    const versionA = versionAId;
-    const versionB = versionBId;
+    const projectId =
+      selectedProjectId;
+
+    const versionA =
+      versionAId;
+
+    const versionB =
+      versionBId;
 
     let active = true;
 
     async function loadComparison() {
       try {
-        setLoadingComparison(true);
+        setLoadingComparison(
+          true,
+        );
+
         setError('');
 
         const result =
@@ -429,7 +503,9 @@ export default function ComparePage() {
         );
       } finally {
         if (active) {
-          setLoadingComparison(false);
+          setLoadingComparison(
+            false,
+          );
         }
       }
     }
@@ -445,93 +521,138 @@ export default function ComparePage() {
     versionBId,
   ]);
 
-  const selectedProject =
-    projects.find(
-      (project) =>
-        project.id === selectedProjectId,
-    ) ?? null;
 
   const selectedVersionA =
     versions.find(
       (version) =>
-        version.id === versionAId,
+        version.id ===
+        versionAId,
     ) ?? null;
+
 
   const selectedVersionB =
     versions.find(
       (version) =>
-        version.id === versionBId,
+        version.id ===
+        versionBId,
     ) ?? null;
 
+
   const profileBefore =
-    comparison?.dataset_profiles?.before ??
-    null;
+    comparison
+      ?.dataset_profiles
+      ?.before ?? null;
+
 
   const profileAfter =
-    comparison?.dataset_profiles?.after ??
-    null;
+    comparison
+      ?.dataset_profiles
+      ?.after ?? null;
+
 
   const analysis =
-    comparison?.dataset_analysis ??
+    comparison
+      ?.dataset_analysis ??
     null;
 
+
   const datasetRecords =
-    comparison?.dataset_diff?.datasets ??
-    [];
+    comparison
+      ?.dataset_diff
+      ?.datasets ?? [];
+
 
   const featureChanges =
-    analysis?.feature_changes
-      ?.features_changed ?? {};
+    analysis
+      ?.feature_changes
+      ?.features_changed ??
+    {};
+
 
   const columnsAdded =
-    analysis?.columns_added ??
+    analysis
+      ?.columns_added ??
     [];
 
+
   const columnsRemoved =
-    analysis?.columns_removed ??
+    analysis
+      ?.columns_removed ??
     [];
+
 
   const rowChangeCount =
     datasetRecords.reduce(
-      (total, item) =>
+      (
+        total,
+        item,
+      ) =>
         total +
-        Math.abs(item.rows_added ?? 0) +
-        Math.abs(item.rows_removed ?? 0),
+        Math.abs(
+          item.rows_added ??
+            0,
+        ) +
+        Math.abs(
+          item.rows_removed ??
+            0,
+        ),
       0,
     );
+
 
   const actualSchemaChanges =
     columnsAdded.length +
     columnsRemoved.length;
 
+
   const actualDatasetChanges =
     actualSchemaChanges +
-    Object.keys(featureChanges).length +
+    Object.keys(
+      featureChanges,
+    ).length +
     rowChangeCount;
+
 
   const hasQualityEvidence =
     profileBefore !== null ||
     profileAfter !== null ||
-    analysis?.available === true;
+    analysis
+      ?.available === true;
+
 
   const hasModelEvidence =
-    comparison?.ml_comparison !== null &&
-    comparison?.ml_comparison !== undefined;
+    comparison
+      ?.ml_comparison !==
+      null &&
+    comparison
+      ?.ml_comparison !==
+      undefined;
+
 
   const metricBefore =
-    comparison?.performance?.metrics_before ??
-    comparison?.ml_comparison
+    comparison
+      ?.performance
+      ?.metrics_before ??
+    comparison
+      ?.ml_comparison
       ?.performance_before ??
     {};
 
+
   const metricAfter =
-    comparison?.performance?.metrics_after ??
-    comparison?.ml_comparison
+    comparison
+      ?.performance
+      ?.metrics_after ??
+    comparison
+      ?.ml_comparison
       ?.performance_after ??
     {};
 
+
   const comparableMetricNames =
-    Object.keys(metricBefore).filter(
+    Object.keys(
+      metricBefore,
+    ).filter(
       (key) =>
         Object.prototype.hasOwnProperty.call(
           metricAfter,
@@ -539,113 +660,187 @@ export default function ComparePage() {
         ),
     );
 
+
   const aiRecommendations =
-    comparison?.ai_insights
-      ?.recommendations ?? [];
+    comparison
+      ?.ai_insights
+      ?.recommendations ??
+    [];
+
+
+  const aiSummary =
+    comparison
+      ?.ai_insights
+      ?.summary ??
+    comparison
+      ?.ai_insights
+      ?.root_cause
+      ?.summary ??
+    '';
+
+
+  const aiConfidence =
+    comparison
+      ?.ai_insights
+      ?.root_cause
+      ?.overall_confidence ??
+    'low';
+
+
+  const aiImpactAssessments =
+    comparison
+      ?.ai_insights
+      ?.impact_assessment ??
+    [];
+
 
   const hasAIInterpretation =
-    comparison?.ai_insights?.status ===
-    'success' &&
+    comparison
+      ?.ai_insights
+      ?.status ===
+      'success' &&
     Boolean(
-      comparison.ai_insights.root_cause
-        ?.summary,
+      aiSummary,
     );
 
-  const overviewChanges = useMemo(() => {
-    const changes: string[] = [];
 
-    if (comparison?.git_changed) {
-      changes.push('Git commit changed');
-    }
+  const overviewChanges =
+    useMemo(() => {
+      const changes: string[] =
+        [];
 
-    if (comparison?.dvc_changed) {
-      changes.push('DVC dataset state changed');
-    }
+      if (
+        comparison?.git_changed
+      ) {
+        changes.push(
+          'Git commit changed',
+        );
+      }
 
-    if (comparison?.code_changed) {
-      changes.push('Training/model code changed');
-    }
+      if (
+        comparison?.dvc_changed
+      ) {
+        changes.push(
+          'DVC dataset state changed',
+        );
+      }
 
-    if (
-      (analysis?.row_delta ?? 0) !== 0
-    ) {
-      changes.push(
-        `Row count changed by ${analysis?.row_delta}`,
-      );
-    }
+      if (
+        comparison?.code_changed
+      ) {
+        changes.push(
+          'Training/model code changed',
+        );
+      }
 
-    if (columnsAdded.length > 0) {
-      changes.push(
-        `${columnsAdded.length} column${
-          columnsAdded.length === 1
-            ? ''
-            : 's'
-        } added`,
-      );
-    }
+      if (
+        (analysis?.row_delta ??
+          0) !== 0
+      ) {
+        changes.push(
+          `Row count changed by ${analysis?.row_delta}`,
+        );
+      }
 
-    if (columnsRemoved.length > 0) {
-      changes.push(
-        `${columnsRemoved.length} column${
-          columnsRemoved.length === 1
-            ? ''
-            : 's'
-        } removed`,
-      );
-    }
+      if (
+        columnsAdded.length >
+        0
+      ) {
+        changes.push(
+          `${columnsAdded.length} column${
+            columnsAdded.length ===
+            1
+              ? ''
+              : 's'
+          } added`,
+        );
+      }
 
-    if (
-      analysis?.duplicates_changed
-    ) {
-      changes.push(
-        'Duplicate-row count changed',
-      );
-    }
+      if (
+        columnsRemoved.length >
+        0
+      ) {
+        changes.push(
+          `${columnsRemoved.length} column${
+            columnsRemoved.length ===
+            1
+              ? ''
+              : 's'
+          } removed`,
+        );
+      }
 
-    return changes;
-  }, [
-    comparison,
-    analysis,
-    columnsAdded,
-    columnsRemoved,
-  ]);
+      if (
+        analysis
+          ?.duplicates_changed
+      ) {
+        changes.push(
+          'Duplicate-row count changed',
+        );
+      }
+
+      return changes;
+    }, [
+      comparison,
+      analysis,
+      columnsAdded,
+      columnsRemoved,
+    ]);
+
 
   function swapVersions() {
-    setVersionAId(versionBId);
-    setVersionBId(versionAId);
+    setVersionAId(
+      versionBId,
+    );
+
+    setVersionBId(
+      versionAId,
+    );
   }
+
 
   function handleProjectChange(
     projectId: number | null,
   ) {
-    setSelectedProjectId(projectId);
+    setSelectedProjectId(
+      projectId,
+    );
   }
+
 
   function handleVersionAChange(
     versionId: number | null,
   ) {
     if (
       versionId !== null &&
-      versionId === versionBId
+      versionId ===
+        versionBId
     ) {
       return;
     }
 
-    setVersionAId(versionId);
+    setVersionAId(
+      versionId,
+    );
   }
+
 
   function handleVersionBChange(
     versionId: number | null,
   ) {
     if (
       versionId !== null &&
-      versionId === versionAId
+      versionId ===
+        versionAId
     ) {
       return;
     }
 
-    setVersionBId(versionId);
+    setVersionBId(
+      versionId,
+    );
   }
+
 
   return (
     <div className="compare-page">
@@ -659,10 +854,12 @@ export default function ComparePage() {
         </h1>
 
         <p className="compare-subtitle">
-          Evidence-first comparison of two project
+          Evidence-first comparison
+          of two project
           checkpoints.
         </p>
       </header>
+
 
       <section className="compare-context">
         <div className="compare-context-row">
@@ -672,39 +869,57 @@ export default function ComparePage() {
             </label>
 
             <select
-              value={selectedProjectId ?? ''}
+              value={
+                selectedProjectId ??
+                ''
+              }
               disabled={
                 loadingProjects ||
                 projects.length === 0
               }
-              onChange={(event) => {
-                const value = Number(
-                  event.target.value,
-                );
+              onChange={(
+                event,
+              ) => {
+                const value =
+                  Number(
+                    event.target.value,
+                  );
 
                 handleProjectChange(
-                  Number.isFinite(value)
+                  Number.isFinite(
+                    value,
+                  )
                     ? value
                     : null,
                 );
               }}
             >
-              {projects.length === 0 ? (
+              {projects.length ===
+              0 ? (
                 <option value="">
                   No projects
                 </option>
               ) : (
-                projects.map((project) => (
-                  <option
-                    key={project.id}
-                    value={project.id}
-                  >
-                    {project.name}
-                  </option>
-                ))
+                projects.map(
+                  (project) => (
+                    <option
+                      key={
+                        project.id
+                      }
+                      value={
+                        project.id
+                      }
+                    >
+                      {
+                        project.name
+                      }
+                    </option>
+                  ),
+                )
               )}
             </select>
           </div>
+
 
           <div className="compare-selector-group">
             <label className="compare-selector-label">
@@ -712,37 +927,56 @@ export default function ComparePage() {
             </label>
 
             <select
-              value={versionAId ?? ''}
+              value={
+                versionAId ?? ''
+              }
               disabled={
                 loadingVersions ||
-                versions.length < 2
+                versions.length <
+                  2
               }
-              onChange={(event) => {
-                const value = Number(
-                  event.target.value,
-                );
+              onChange={(
+                event,
+              ) => {
+                const value =
+                  Number(
+                    event.target.value,
+                  );
 
                 handleVersionAChange(
-                  Number.isFinite(value)
+                  Number.isFinite(
+                    value,
+                  )
                     ? value
                     : null,
                 );
               }}
             >
-              {versions.map((version) => (
-                <option
-                  key={version.id}
-                  value={version.id}
-                >
-                  V{version.version_number}
-                </option>
-              ))}
+              {versions.map(
+                (version) => (
+                  <option
+                    key={
+                      version.id
+                    }
+                    value={
+                      version.id
+                    }
+                  >
+                    V
+                    {
+                      version.version_number
+                    }
+                  </option>
+                ),
+              )}
             </select>
           </div>
+
 
           <div className="compare-arrow">
             →
           </div>
+
 
           <div className="compare-selector-group">
             <label className="compare-selector-label">
@@ -750,46 +984,69 @@ export default function ComparePage() {
             </label>
 
             <select
-              value={versionBId ?? ''}
+              value={
+                versionBId ?? ''
+              }
               disabled={
                 loadingVersions ||
-                versions.length < 2
+                versions.length <
+                  2
               }
-              onChange={(event) => {
-                const value = Number(
-                  event.target.value,
-                );
+              onChange={(
+                event,
+              ) => {
+                const value =
+                  Number(
+                    event.target.value,
+                  );
 
                 handleVersionBChange(
-                  Number.isFinite(value)
+                  Number.isFinite(
+                    value,
+                  )
                     ? value
                     : null,
                 );
               }}
             >
-              {versions.map((version) => (
-                <option
-                  key={version.id}
-                  value={version.id}
-                >
-                  V{version.version_number}
-                </option>
-              ))}
+              {versions.map(
+                (version) => (
+                  <option
+                    key={
+                      version.id
+                    }
+                    value={
+                      version.id
+                    }
+                  >
+                    V
+                    {
+                      version.version_number
+                    }
+                  </option>
+                ),
+              )}
             </select>
           </div>
+
 
           <button
             type="button"
             className="compare-swap-button"
-            onClick={swapVersions}
+            onClick={
+              swapVersions
+            }
             disabled={
-              versionAId === null ||
-              versionBId === null
+              versionAId ===
+                null ||
+              versionBId ===
+                null
             }
           >
             SWAP A ↔ B
           </button>
         </div>
+
 
         <div className="compare-context-direction">
           <strong>
@@ -798,7 +1055,9 @@ export default function ComparePage() {
               : '—'}
           </strong>
 
-          <span>──────────────────→</span>
+          <span>
+            ──────────────────→
+          </span>
 
           <strong>
             {selectedVersionB
@@ -807,126 +1066,178 @@ export default function ComparePage() {
           </strong>
         </div>
 
+
         <div className="compare-context-labels">
-          <span>BASELINE → TARGET</span>
+          <span>
+            BASELINE → TARGET
+          </span>
         </div>
       </section>
 
+
       {error ? (
         <section className="compare-error">
-          <strong>COMPARE ERROR</strong>
-          <span>{error}</span>
+          <strong>
+            COMPARE ERROR
+          </strong>
+
+          <span>
+            {error}
+          </span>
         </section>
       ) : null}
+
 
       {loadingComparison ? (
         <section className="compare-loading">
           <span className="compare-loading-caret">
             &gt;
           </span>
-          loading comparison evidence...
+
+          loading comparison
+          evidence...
         </section>
       ) : null}
+
 
       {comparison ? (
         <>
           <section className="compare-status-line">
             <span
               className={
-                comparableMetricNames.length > 0
+                comparableMetricNames.length >
+                0
                   ? 'compare-status-ok'
                   : 'compare-status-warning'
               }
             >
-              {comparableMetricNames.length > 0
+              {comparableMetricNames.length >
+              0
                 ? '✓'
                 : '!'}
             </span>
 
             <strong>
               STATUS:{' '}
-              {comparableMetricNames.length > 0
+              {comparableMetricNames.length >
+              0
                 ? 'COMPARABLE EVIDENCE AVAILABLE'
                 : 'INSUFFICIENT METRIC EVIDENCE'}
             </strong>
 
             <span>
-              {overviewChanges.length > 0
-                ? overviewChanges.join(' · ')
+              {overviewChanges.length >
+              0
+                ? overviewChanges.join(
+                    ' · ',
+                  )
                 : 'No recorded changes detected.'}
             </span>
           </section>
+
 
           <Section
             number="01"
             title="COMPARISON OVERVIEW"
             subtitle="The first answer: what changed, and what direction the recorded evidence moved."
           >
-            {overviewChanges.length === 0 ? (
+            {overviewChanges.length ===
+            0 ? (
               <EvidenceState>
-                No recorded comparison changes were returned
+                No recorded
+                comparison changes
+                were returned
                 for these versions.
               </EvidenceState>
             ) : (
               <div className="compare-overview-list">
                 {overviewChanges.map(
-                  (change) => (
+                  (
+                    change,
+                  ) => (
                     <div
-                      key={change}
+                      key={
+                        change
+                      }
                       className="compare-overview-item"
                     >
-                      <span>✓</span>
-                      <span>{change}</span>
+                      <span>
+                        ✓
+                      </span>
+
+                      <span>
+                        {change}
+                      </span>
                     </div>
                   ),
                 )}
               </div>
             )}
 
+
             <div className="compare-metric-strip">
               <MetricRow
                 label="Rows"
-                before={formatNumber(
-                  profileBefore?.rows,
-                )}
-                after={formatNumber(
-                  profileAfter?.rows,
-                )}
+                before={
+                  formatNumber(
+                    profileBefore?.rows,
+                  )
+                }
+                after={
+                  formatNumber(
+                    profileAfter?.rows,
+                  )
+                }
               />
 
               <MetricRow
                 label="Columns"
-                before={formatNumber(
-                  profileBefore?.column_count,
-                )}
-                after={formatNumber(
-                  profileAfter?.column_count,
-                )}
+                before={
+                  formatNumber(
+                    profileBefore?.column_count,
+                  )
+                }
+                after={
+                  formatNumber(
+                    profileAfter?.column_count,
+                  )
+                }
               />
 
               <MetricRow
                 label="Missing"
-                before={formatNumber(
-                  profileBefore
-                    ?.total_missing_values,
-                )}
-                after={formatNumber(
-                  profileAfter
-                    ?.total_missing_values,
-                )}
+                before={
+                  formatNumber(
+                    profileBefore
+                      ?.total_missing_values,
+                  )
+                }
+                after={
+                  formatNumber(
+                    profileAfter
+                      ?.total_missing_values,
+                  )
+                }
               />
 
               <MetricRow
                 label="Duplicates"
-                before={formatNumber(
-                  profileBefore?.duplicate_rows,
-                )}
-                after={formatNumber(
-                  profileAfter?.duplicate_rows,
-                )}
+                before={
+                  formatNumber(
+                    profileBefore
+                      ?.duplicate_rows,
+                  )
+                }
+                after={
+                  formatNumber(
+                    profileAfter
+                      ?.duplicate_rows,
+                  )
+                }
               />
             </div>
           </Section>
+
 
           <Section
             number="02"
@@ -936,28 +1247,47 @@ export default function ComparePage() {
             {comparableMetricNames.length ===
             0 ? (
               <EvidenceState>
-                No comparable scalar metrics are
-                available.
+                No comparable
+                scalar metrics
+                are available.
               </EvidenceState>
             ) : (
               <div className="compare-table-wrap">
                 <table className="compare-table">
                   <thead>
                     <tr>
-                      <th>METRIC</th>
-                      <th>BASELINE</th>
-                      <th>TARGET</th>
-                      <th>DELTA</th>
+                      <th>
+                        METRIC
+                      </th>
+
+                      <th>
+                        BASELINE
+                      </th>
+
+                      <th>
+                        TARGET
+                      </th>
+
+                      <th>
+                        DELTA
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {comparableMetricNames.map(
-                      (name) => {
+                      (
+                        name,
+                      ) => {
                         const before =
-                          metricBefore[name];
+                          metricBefore[
+                            name
+                          ];
 
                         const after =
-                          metricAfter[name];
+                          metricAfter[
+                            name
+                          ];
 
                         const numericBefore =
                           typeof before ===
@@ -981,20 +1311,34 @@ export default function ComparePage() {
                             : null;
 
                         return (
-                          <tr key={name}>
-                            <td>{name}</td>
+                          <tr
+                            key={
+                              name
+                            }
+                          >
+                            <td>
+                              {name}
+                            </td>
+
                             <td>
                               <EvidenceValue
-                                value={before}
+                                value={
+                                  before
+                                }
                               />
                             </td>
+
                             <td>
                               <EvidenceValue
-                                value={after}
+                                value={
+                                  after
+                                }
                               />
                             </td>
+
                             <td>
-                              {delta === null
+                              {delta ===
+                              null
                                 ? '—'
                                 : formatNumber(
                                     delta,
@@ -1010,6 +1354,7 @@ export default function ComparePage() {
             )}
           </Section>
 
+
           <Section
             number="03"
             title="QUALITY"
@@ -1017,62 +1362,86 @@ export default function ComparePage() {
           >
             {!hasQualityEvidence ? (
               <EvidenceState>
-                No comparable quality evidence recorded
-                for these versions.
+                No comparable
+                quality evidence
+                recorded for these
+                versions.
               </EvidenceState>
             ) : (
               <>
                 <div className="compare-quality-grid">
                   <MetricRow
                     label="ROWS"
-                    before={formatNumber(
-                      profileBefore?.rows,
-                    )}
-                    after={formatNumber(
-                      profileAfter?.rows,
-                    )}
+                    before={
+                      formatNumber(
+                        profileBefore?.rows,
+                      )
+                    }
+                    after={
+                      formatNumber(
+                        profileAfter?.rows,
+                      )
+                    }
                   />
 
                   <MetricRow
                     label="COLUMNS"
-                    before={formatNumber(
-                      profileBefore?.column_count,
-                    )}
-                    after={formatNumber(
-                      profileAfter?.column_count,
-                    )}
+                    before={
+                      formatNumber(
+                        profileBefore
+                          ?.column_count,
+                      )
+                    }
+                    after={
+                      formatNumber(
+                        profileAfter
+                          ?.column_count,
+                      )
+                    }
                   />
 
                   <MetricRow
                     label="MISSING VALUES"
-                    before={formatNumber(
-                      profileBefore
-                        ?.total_missing_values,
-                    )}
-                    after={formatNumber(
-                      profileAfter
-                        ?.total_missing_values,
-                    )}
+                    before={
+                      formatNumber(
+                        profileBefore
+                          ?.total_missing_values,
+                      )
+                    }
+                    after={
+                      formatNumber(
+                        profileAfter
+                          ?.total_missing_values,
+                      )
+                    }
                   />
 
                   <MetricRow
                     label="DUPLICATE ROWS"
-                    before={formatNumber(
-                      profileBefore
-                        ?.duplicate_rows,
-                    )}
-                    after={formatNumber(
-                      profileAfter
-                        ?.duplicate_rows,
-                    )}
+                    before={
+                      formatNumber(
+                        profileBefore
+                          ?.duplicate_rows,
+                      )
+                    }
+                    after={
+                      formatNumber(
+                        profileAfter
+                          ?.duplicate_rows,
+                      )
+                    }
                   />
                 </div>
 
-                {profileBefore?.target_column ||
-                profileAfter?.target_column ? (
+
+                {profileBefore
+                  ?.target_column ||
+                profileAfter
+                  ?.target_column ? (
                   <div className="compare-quality-detail">
                     <div className="compare-detail-title">
-                      TARGET DISTRIBUTION
+                      TARGET
+                      DISTRIBUTION
                     </div>
 
                     <div className="compare-distribution-grid">
@@ -1085,14 +1454,22 @@ export default function ComparePage() {
                           profileBefore
                             ?.target_distribution,
                         ).map(
-                          ([key, value]) => (
+                          (
+                            [
+                              key,
+                              value,
+                            ],
+                          ) => (
                             <div
-                              key={key}
+                              key={
+                                key
+                              }
                               className="compare-distribution-row"
                             >
                               <span>
                                 {key}
                               </span>
+
                               <strong>
                                 {formatNumber(
                                   value,
@@ -1103,6 +1480,7 @@ export default function ComparePage() {
                         )}
                       </div>
 
+
                       <div>
                         <div className="compare-detail-version">
                           TARGET
@@ -1112,14 +1490,22 @@ export default function ComparePage() {
                           profileAfter
                             ?.target_distribution,
                         ).map(
-                          ([key, value]) => (
+                          (
+                            [
+                              key,
+                              value,
+                            ],
+                          ) => (
                             <div
-                              key={key}
+                              key={
+                                key
+                              }
                               className="compare-distribution-row"
                             >
                               <span>
                                 {key}
                               </span>
+
                               <strong>
                                 {formatNumber(
                                   value,
@@ -1136,6 +1522,7 @@ export default function ComparePage() {
             )}
           </Section>
 
+
           <Section
             number="04"
             title="DATASET / SCHEMA"
@@ -1143,76 +1530,130 @@ export default function ComparePage() {
           >
             <div className="compare-change-counts">
               <div>
-                <span>+</span>
+                <span>
+                  +
+                </span>
+
                 <strong>
                   {columnsAdded.length}
                 </strong>
-                <small>ADDED</small>
+
+                <small>
+                  ADDED
+                </small>
               </div>
 
               <div>
-                <span>−</span>
+                <span>
+                  −
+                </span>
+
                 <strong>
                   {columnsRemoved.length}
                 </strong>
-                <small>REMOVED</small>
+
+                <small>
+                  REMOVED
+                </small>
               </div>
 
               <div>
-                <span>~</span>
+                <span>
+                  ~
+                </span>
+
                 <strong>
-                  {Object.keys(featureChanges).length}
+                  {
+                    Object.keys(
+                      featureChanges,
+                    ).length
+                  }
                 </strong>
-                <small>MODIFIED</small>
+
+                <small>
+                  MODIFIED
+                </small>
               </div>
 
               <div>
-                <span>↕</span>
+                <span>
+                  ↕
+                </span>
+
                 <strong>
                   {rowChangeCount}
                 </strong>
-                <small>ROW CHANGES</small>
+
+                <small>
+                  ROW CHANGES
+                </small>
               </div>
             </div>
 
-            {columnsAdded.length > 0 ? (
+
+            {columnsAdded.length >
+            0 ? (
               <div className="compare-change-block">
-                <h3>ADDED COLUMNS</h3>
+                <h3>
+                  ADDED COLUMNS
+                </h3>
+
                 {columnsAdded.map(
-                  (column) => (
+                  (
+                    column,
+                  ) => (
                     <div
-                      key={column}
+                      key={
+                        column
+                      }
                       className="compare-change-line compare-change-added"
                     >
-                      + {column}
+                      +{' '}
+                      {column}
                     </div>
                   ),
                 )}
               </div>
             ) : null}
 
-            {columnsRemoved.length > 0 ? (
+
+            {columnsRemoved.length >
+            0 ? (
               <div className="compare-change-block">
-                <h3>REMOVED COLUMNS</h3>
+                <h3>
+                  REMOVED COLUMNS
+                </h3>
+
                 {columnsRemoved.map(
-                  (column) => (
+                  (
+                    column,
+                  ) => (
                     <div
-                      key={column}
+                      key={
+                        column
+                      }
                       className="compare-change-line compare-change-removed"
                     >
-                      − {column}
+                      −{' '}
+                      {column}
                     </div>
                   ),
                 )}
               </div>
             ) : null}
 
-            {datasetRecords.length > 0 ? (
+
+            {datasetRecords.length >
+            0 ? (
               <div className="compare-change-block">
-                <h3>DATASET CHANGES</h3>
+                <h3>
+                  DATASET CHANGES
+                </h3>
 
                 {datasetRecords.map(
-                  (dataset) => (
+                  (
+                    dataset,
+                  ) => (
                     <div
                       key={
                         dataset.dataset ??
@@ -1260,6 +1701,7 @@ export default function ComparePage() {
                         </span>
                       </div>
 
+
                       {dataset.added_rows &&
                       dataset.added_rows.length >
                         0 ? (
@@ -1286,6 +1728,7 @@ export default function ComparePage() {
                           )}
                         </div>
                       ) : null}
+
 
                       {dataset.removed_rows &&
                       dataset.removed_rows.length >
@@ -1319,21 +1762,38 @@ export default function ComparePage() {
               </div>
             ) : null}
 
-            {Object.keys(featureChanges).length >
-            0 ? (
+
+            {Object.keys(
+              featureChanges,
+            ).length > 0 ? (
               <div className="compare-change-block">
-                <h3>FEATURE STATISTICS</h3>
+                <h3>
+                  FEATURE
+                  STATISTICS
+                </h3>
 
                 <div className="compare-table-wrap">
                   <table className="compare-table">
                     <thead>
                       <tr>
-                        <th>FIELD</th>
-                        <th>BASELINE</th>
-                        <th>TARGET</th>
-                        <th>DELTA</th>
+                        <th>
+                          FIELD
+                        </th>
+
+                        <th>
+                          BASELINE
+                        </th>
+
+                        <th>
+                          TARGET
+                        </th>
+
+                        <th>
+                          DELTA
+                        </th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {Object.entries(
                         featureChanges,
@@ -1353,19 +1813,27 @@ export default function ComparePage() {
                                 key={`${feature}-${metric}`}
                               >
                                 <td>
-                                  {feature} /{' '}
-                                  {metric}
+                                  {
+                                    feature
+                                  }{' '}
+                                  /{' '}
+                                  {
+                                    metric
+                                  }
                                 </td>
+
                                 <td>
                                   {formatNumber(
                                     values.before,
                                   )}
                                 </td>
+
                                 <td>
                                   {formatNumber(
                                     values.after,
                                   )}
                                 </td>
+
                                 <td>
                                   {formatNumber(
                                     values.delta,
@@ -1381,25 +1849,168 @@ export default function ComparePage() {
               </div>
             ) : null}
 
-            {actualDatasetChanges === 0 ? (
+
+            {actualDatasetChanges ===
+            0 ? (
               <EvidenceState>
-                No structured dataset differences were
-                recorded.
+                No structured
+                dataset
+                differences
+                were recorded.
               </EvidenceState>
             ) : null}
           </Section>
+
 
           <Section
             number="05"
             title="PREPARATION DIFF"
             subtitle="Recorded preparation evidence between the two checkpoints."
           >
-            <EvidenceState>
-              Preparation history is not persisted in the
-              current comparison response, so no
-              preparation operation diff is rendered.
-            </EvidenceState>
+            {comparison.preparation
+              ?.available ? (
+              <div>
+                <div className="compare-change-counts">
+                  <div>
+                    <span>
+                      +
+                    </span>
+                    <strong>
+                      {
+                        comparison
+                          .preparation
+                          .added
+                          ?.length ??
+                        0
+                      }
+                    </strong>
+                    <small>
+                      ADDED
+                    </small>
+                  </div>
+
+                  <div>
+                    <span>
+                      −
+                    </span>
+                    <strong>
+                      {
+                        comparison
+                          .preparation
+                          .removed
+                          ?.length ??
+                        0
+                      }
+                    </strong>
+                    <small>
+                      REMOVED
+                    </small>
+                  </div>
+
+                  <div>
+                    <span>
+                      ~
+                    </span>
+                    <strong>
+                      {
+                        comparison
+                          .preparation
+                          .modified
+                          ?.length ??
+                        0
+                      }
+                    </strong>
+                    <small>
+                      MODIFIED
+                    </small>
+                  </div>
+                </div>
+
+                {comparison
+                  .preparation
+                  .added
+                  ?.map(
+                    (
+                      item,
+                      index,
+                    ) => (
+                      <pre
+                        key={`prep-added-${index}`}
+                        className="compare-row-code"
+                      >
+                        +{' '}
+                        {JSON.stringify(
+                          item,
+                        )}
+                      </pre>
+                    ),
+                  )}
+
+                {comparison
+                  .preparation
+                  .removed
+                  ?.map(
+                    (
+                      item,
+                      index,
+                    ) => (
+                      <pre
+                        key={`prep-removed-${index}`}
+                        className="compare-row-code compare-row-code-removed"
+                      >
+                        −{' '}
+                        {JSON.stringify(
+                          item,
+                        )}
+                      </pre>
+                    ),
+                  )}
+
+                {comparison
+                  .preparation
+                  .modified
+                  ?.map(
+                    (
+                      item,
+                      index,
+                    ) => (
+                      <div
+                        key={`prep-modified-${index}`}
+                        className="compare-change-block"
+                      >
+                        <div className="compare-detail-title">
+                          {item.operation ??
+                            'OPERATION'}
+                        </div>
+
+                        <pre className="compare-row-code">
+                          BASELINE:{' '}
+                          {JSON.stringify(
+                            item.baseline ??
+                              {},
+                          )}
+                        </pre>
+
+                        <pre className="compare-row-code">
+                          TARGET:{' '}
+                          {JSON.stringify(
+                            item.target ??
+                              {},
+                          )}
+                        </pre>
+                      </div>
+                    ),
+                  )}
+              </div>
+            ) : (
+              <EvidenceState>
+                {comparison.preparation
+                  ?.message ??
+                  'Preparation history is not recorded for the selected versions.'}
+              </EvidenceState>
+            )}
           </Section>
+
 
           <Section
             number="06"
@@ -1408,35 +2019,52 @@ export default function ComparePage() {
           >
             {!hasModelEvidence ? (
               <EvidenceState>
-                No evaluation evidence recorded for this
+                No evaluation evidence
+                recorded for this
                 comparison.
               </EvidenceState>
             ) : (
               <div className="compare-model-evidence">
                 <div className="compare-model-header">
-                  <span>FIELD</span>
-                  <span>BASELINE</span>
-                  <span>TARGET</span>
-                </div>
-
-                <div className="compare-model-row">
-                  <span>MODEL</span>
+                  <span>
+                    FIELD
+                  </span>
 
                   <span>
-                    {comparison.ml_comparison
+                    BASELINE
+                  </span>
+
+                  <span>
+                    TARGET
+                  </span>
+                </div>
+
+
+                <div className="compare-model-row">
+                  <span>
+                    MODEL
+                  </span>
+
+                  <span>
+                    {comparison
+                      .ml_comparison
                       ?.model_name_before ??
                       '—'}
                   </span>
 
                   <span>
-                    {comparison.ml_comparison
+                    {comparison
+                      .ml_comparison
                       ?.model_name_after ??
                       '—'}
                   </span>
                 </div>
 
+
                 <div className="compare-model-row">
-                  <span>FEATURES</span>
+                  <span>
+                    FEATURES
+                  </span>
 
                   <span>
                     {formatNumber(
@@ -1457,46 +2085,56 @@ export default function ComparePage() {
                   </span>
                 </div>
 
+
                 {Object.keys(
                   comparison
                     .ml_comparison
                     ?.performance_before ??
                     {},
-                ).map((metric) => (
-                  <div
-                    key={metric}
-                    className="compare-model-row"
-                  >
-                    <span>{metric}</span>
+                ).map(
+                  (
+                    metric,
+                  ) => (
+                    <div
+                      key={
+                        metric
+                      }
+                      className="compare-model-row"
+                    >
+                      <span>
+                        {metric}
+                      </span>
 
-                    <span>
-                      <EvidenceValue
-                        value={
-                          comparison
-                            .ml_comparison
-                            ?.performance_before?.[
-                            metric
-                          ]
-                        }
-                      />
-                    </span>
+                      <span>
+                        <EvidenceValue
+                          value={
+                            comparison
+                              .ml_comparison
+                              ?.performance_before?.[
+                              metric
+                            ]
+                          }
+                        />
+                      </span>
 
-                    <span>
-                      <EvidenceValue
-                        value={
-                          comparison
-                            .ml_comparison
-                            ?.performance_after?.[
-                            metric
-                          ]
-                        }
-                      />
-                    </span>
-                  </div>
-                ))}
+                      <span>
+                        <EvidenceValue
+                          value={
+                            comparison
+                              .ml_comparison
+                              ?.performance_after?.[
+                              metric
+                            ]
+                          }
+                        />
+                      </span>
+                    </div>
+                  ),
+                )}
               </div>
             )}
           </Section>
+
 
           <Section
             number="07"
@@ -1505,63 +2143,100 @@ export default function ComparePage() {
           >
             <div className="compare-provenance-grid">
               <div>
-                <span>GIT COMMIT</span>
+                <span>
+                  GIT COMMIT
+                </span>
+
                 <strong>
                   {shortCommit(
-                    comparison.git_commit_before,
+                    comparison
+                      .git_commit_before,
                   )}
                 </strong>
-                <em>→</em>
+
+                <em>
+                  →
+                </em>
+
                 <strong>
                   {shortCommit(
-                    comparison.git_commit_after,
+                    comparison
+                      .git_commit_after,
                   )}
                 </strong>
               </div>
 
+
               <div>
-                <span>DVC STATE</span>
+                <span>
+                  DVC STATE
+                </span>
+
                 <strong>
                   {getDvcLabel(
-                    comparison.dvc_state_before,
+                    comparison
+                      .dvc_state_before,
                   )}
                 </strong>
-                <em>→</em>
+
+                <em>
+                  →
+                </em>
+
                 <strong>
                   {getDvcLabel(
-                    comparison.dvc_state_after,
+                    comparison
+                      .dvc_state_after,
                   )}
                 </strong>
               </div>
 
+
               <div>
-                <span>CHANGED FILES</span>
+                <span>
+                  CHANGED FILES
+                </span>
+
                 <strong>
                   {formatNumber(
-                    comparison.changed_files
+                    comparison
+                      .changed_files
                       ?.length,
                   )}
                 </strong>
               </div>
 
+
               <div>
-                <span>CODE FILES CHANGED</span>
+                <span>
+                  CODE FILES CHANGED
+                </span>
+
                 <strong>
                   {formatNumber(
-                    comparison.code_changed_files
+                    comparison
+                      .code_changed_files
                       ?.length,
                   )}
                 </strong>
               </div>
 
+
               <div>
-                <span>DESCRIPTION</span>
+                <span>
+                  DESCRIPTION
+                </span>
+
                 <strong>
                   {selectedVersionA
                     ?.description ??
                     '—'}
                 </strong>
-                <em>→</em>
+
+                <em>
+                  →
+                </em>
+
                 <strong>
                   {selectedVersionB
                     ?.description ??
@@ -1571,6 +2246,7 @@ export default function ComparePage() {
             </div>
           </Section>
 
+
           <Section
             number="08"
             title="AI SUMMARY"
@@ -1579,68 +2255,111 @@ export default function ComparePage() {
             {hasAIInterpretation ? (
               <div className="compare-ai-summary">
                 <div className="compare-ai-label">
-                  EVIDENCE-BASED INTERPRETATION
+                  EVIDENCE-BASED
+                  INTERPRETATION
                 </div>
 
                 <p className="compare-ai-text">
-                  {
-                    comparison.ai_insights
-                      ?.root_cause?.summary
-                  }
+                  {aiSummary}
                 </p>
 
                 <div className="compare-ai-meta">
                   CONFIDENCE:{' '}
-                  {
-                    comparison.ai_insights
-                      ?.root_cause
-                      ?.overall_confidence ??
-                      'LOW'
-                  }
+                  {aiConfidence}
                 </div>
 
-                {comparison.ai_insights
-                  ?.root_cause?.limitations
+
+                {aiImpactAssessments.length >
+                0 ? (
+                  <div className="compare-ai-list">
+                    <div className="compare-detail-title">
+                      IMPACT
+                      ASSESSMENT
+                    </div>
+
+                    {aiImpactAssessments.map(
+                      (
+                        item,
+                        index,
+                      ) => (
+                        <div
+                          key={`${item.area}-${index}`}
+                          className="compare-ai-list-item"
+                        >
+                          <strong>
+                            {item.area}
+                          </strong>
+                          {' — '}
+                          {item.status}
+                          {item.explanation
+                            ? `: ${item.explanation}`
+                            : ''}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+
+
+                {comparison
+                  .ai_insights
+                  ?.root_cause
+                  ?.limitations
                   ?.length ? (
                   <div className="compare-ai-list">
                     <div className="compare-detail-title">
                       LIMITATIONS
                     </div>
 
-                    {comparison.ai_insights.root_cause.limitations.map(
-                      (item) => (
-                        <div
-                          key={item}
-                          className="compare-ai-list-item"
-                        >
-                          × {item}
-                        </div>
-                      ),
-                    )}
+                    {comparison
+                      .ai_insights
+                      .root_cause
+                      .limitations
+                      .map(
+                        (
+                          item,
+                        ) => (
+                          <div
+                            key={
+                              item
+                            }
+                            className="compare-ai-list-item"
+                          >
+                            ×{' '}
+                            {item}
+                          </div>
+                        ),
+                      )}
                   </div>
                 ) : null}
               </div>
             ) : (
               <EvidenceState>
-                {comparison.ai_insights?.status ===
+                {comparison
+                  .ai_insights
+                  ?.status ===
                 'disabled'
                   ? 'AI comparison generation was disabled.'
-                  : comparison.ai_insights
-                        ?.reason ??
+                  : comparison
+                      .ai_insights
+                      ?.reason ??
                     'No evidence-grounded AI interpretation was returned.'}
               </EvidenceState>
             )}
           </Section>
+
 
           <Section
             number="09"
             title="RECOMMENDATIONS"
             subtitle="Short, evidence-backed follow-up actions."
           >
-            {aiRecommendations.length === 0 ? (
+            {aiRecommendations.length ===
+            0 ? (
               <EvidenceState>
-                No recommendations were returned by the
-                backend.
+                No recommendations
+                were returned by
+                the backend.
               </EvidenceState>
             ) : (
               <div className="compare-recommendations">
@@ -1654,7 +2373,10 @@ export default function ComparePage() {
                       className="compare-recommendation"
                     >
                       <div className="compare-recommendation-index">
-                        {String(index + 1).padStart(
+                        {String(
+                          index +
+                            1,
+                        ).padStart(
                           2,
                           '0',
                         )}
@@ -1663,7 +2385,9 @@ export default function ComparePage() {
                       <div className="compare-recommendation-content">
                         <div className="compare-recommendation-top">
                           <strong>
-                            {item.recommendation}
+                            {
+                              item.recommendation
+                            }
                           </strong>
 
                           <span
@@ -1678,7 +2402,9 @@ export default function ComparePage() {
                         </div>
 
                         <p>
-                          {item.reason}
+                          {
+                            item.reason
+                          }
                         </p>
                       </div>
                     </div>
@@ -1688,8 +2414,32 @@ export default function ComparePage() {
             )}
           </Section>
 
+
+          <AIExplanationPanel
+            projectId={
+              selectedProjectId
+            }
+            versionAId={
+              versionAId
+            }
+            versionBId={
+              versionBId
+            }
+            versionANumber={
+              selectedVersionA
+                ?.version_number ??
+              null
+            }
+            versionBNumber={
+              selectedVersionB
+                ?.version_number ??
+              null
+            }
+          />
+
+
           <Section
-            number="10"
+            number="11"
             title="RAW EVIDENCE"
             subtitle="Developer-level payload details are intentionally collapsed."
           >
@@ -1712,8 +2462,12 @@ export default function ComparePage() {
         </>
       ) : null}
 
+
       <div className="compare-terminal">
-        <span>&gt; datagit@local:~/project$</span>
+        <span>
+          &gt; datagit@local:~/project$
+        </span>
+
         <span>
           {loadingComparison
             ? 'loading comparison...'
@@ -1729,6 +2483,7 @@ export default function ComparePage() {
                 } ready.`
               : 'compare ready.'}
         </span>
+
         <span className="compare-terminal-ready">
           READY
         </span>

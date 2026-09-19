@@ -1,1155 +1,1279 @@
-import type {
-  ReportProject,
-  ReportVersionDetail,
-} from '../types/report';
+import { useState, type ReactNode } from 'react';
+import type { ReportProject, ReportVersionDetail } from '../types/report';
+import AIInterpretationPanel from './AIInterpretationPanel';
+import './ReportDocument.css';
 
-interface ReportDocumentProps {
-  project: ReportProject | null;
+interface Props {
+  project: ReportProject;
   version: ReportVersionDetail;
+  onBack: () => void;
 }
 
-type AnyRecord = Record<string, unknown>;
+type Dict = Record<string, unknown>;
 
-interface AIChange {
-  change?: string;
-  explanation?: string;
+function dict(raw: unknown): Dict {
+  return raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Dict)
+    : {};
 }
 
-interface AIRecommendation {
-  recommendation?: string;
-  reason?: string;
-  priority?: string;
+function list(raw: unknown): unknown[] {
+  return Array.isArray(raw) ? raw : [];
 }
 
-interface AIInsights {
-  status?: string;
-  summary?: string;
-  quality_assessment?: string;
-  changes_explained?: AIChange[];
-  recommendations?: AIRecommendation[];
-  reason?: string;
-}
-
-function asRecord(value: unknown): AnyRecord | null {
-  if (
-    value !== null &&
-    typeof value === 'object' &&
-    !Array.isArray(value)
-  ) {
-    return value as AnyRecord;
+function value(raw: unknown, fallback = 'Not recorded'): string {
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim();
   }
 
-  return null;
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function firstValue(
-  source: AnyRecord | null | undefined,
-  keys: string[],
-): unknown {
-  if (!source) {
-    return undefined;
+  if (typeof raw === 'number' || typeof raw === 'boolean') {
+    return String(raw);
   }
 
-  for (const key of keys) {
-    const value = source[key];
+  return fallback;
+}
+
+function pick(source: unknown, paths: string[]): unknown {
+  for (const path of paths) {
+    let current: unknown = source;
+
+    for (const part of path.split('.')) {
+      if (!current || typeof current !== 'object') {
+        current = undefined;
+        break;
+      }
+
+      current = (current as Dict)[part];
+    }
 
     if (
-      value !== undefined &&
-      value !== null &&
-      value !== ''
+      current !== undefined &&
+      current !== null &&
+      current !== ''
     ) {
-      return value;
+      return current;
     }
   }
 
   return undefined;
 }
 
-function textValue(value: unknown): string {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ''
-  ) {
-    return '—';
+function formatDate(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw) {
+    return 'Not recorded';
   }
 
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return String(value);
+  const parsed = new Date(raw);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return raw;
   }
 
-  return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed);
 }
 
-function versionLabel(value: unknown): string {
-  const number = Number(value);
+function shortHash(raw: unknown): string {
+  const hash = value(raw, 'Not recorded');
 
-  if (!Number.isFinite(number)) {
-    return 'V—';
-  }
-
-  return `V${number}`;
+  return hash.length > 12
+    ? `${hash.slice(0, 10)}…`
+    : hash;
 }
 
-function renderArray(value: unknown): string {
-  if (!Array.isArray(value) || value.length === 0) {
-    return '—';
-  }
-
-  return value
-    .map((item) => textValue(item))
-    .join(', ');
-}
-
-function renderObject(value: unknown): string {
-  const record = asRecord(value);
-
-  if (!record) {
-    return textValue(value);
-  }
-
-  const entries = Object.entries(record);
-
-  if (entries.length === 0) {
-    return '—';
-  }
-
-  return entries
-    .map(([key, item]) => `${key}: ${textValue(item)}`)
-    .join(' | ');
-}
-
-function getTrackedFiles(
-  dvc: AnyRecord | null,
-): AnyRecord[] {
-  return asArray(dvc?.tracked_files).filter(
-    (item): item is AnyRecord =>
-      Boolean(
-        item &&
-          typeof item === 'object' &&
-          !Array.isArray(item),
-      ),
+function Status({
+  children,
+  tone = 'neutral',
+}: {
+  children: string;
+  tone?: 'neutral' | 'ok' | 'missing' | 'ai';
+}) {
+  return (
+    <span className={`report-status report-status-${tone}`}>
+      {children}
+    </span>
   );
 }
 
-function normalizeAIInsights(
-  value: unknown,
-): AIInsights | null {
-  const direct = asRecord(value);
+function CopyButton({ raw }: { raw: string }) {
+  const [copied, setCopied] = useState(false);
 
-  if (!direct) {
-    return null;
-  }
+  async function copy() {
+    if (!raw || !navigator.clipboard) {
+      return;
+    }
 
-  const status =
-    typeof direct.status === 'string'
-      ? direct.status
-      : undefined;
+    try {
+      await navigator.clipboard.writeText(raw);
+      setCopied(true);
 
-  const summary =
-    typeof direct.summary === 'string'
-      ? direct.summary
-      : undefined;
-
-  const qualityAssessment =
-    typeof direct.quality_assessment === 'string'
-      ? direct.quality_assessment
-      : undefined;
-
-  const rawChanges = asArray(
-    direct.changes_explained,
-  );
-
-  const changes: AIChange[] = rawChanges
-    .map((item) => asRecord(item))
-    .filter(Boolean)
-    .map((item) => ({
-      change:
-        typeof item?.change === 'string'
-          ? item.change
-          : undefined,
-      explanation:
-        typeof item?.explanation === 'string'
-          ? item.explanation
-          : undefined,
-    }));
-
-  const rawRecommendations = asArray(
-    direct.recommendations,
-  );
-
-  const recommendations: AIRecommendation[] =
-    rawRecommendations
-      .map((item) => asRecord(item))
-      .filter(Boolean)
-      .map((item) => ({
-        recommendation:
-          typeof item?.recommendation === 'string'
-            ? item.recommendation
-            : undefined,
-        reason:
-          typeof item?.reason === 'string'
-            ? item.reason
-            : undefined,
-        priority:
-          typeof item?.priority === 'string'
-            ? item.priority
-            : undefined,
-      }));
-
-  return {
-    status,
-    summary,
-    quality_assessment: qualityAssessment,
-    changes_explained: changes,
-    recommendations,
-    reason:
-      typeof direct.reason === 'string'
-        ? direct.reason
-        : undefined,
-  };
-}
-
-function getAIInsights(
-  record: AnyRecord,
-): AIInsights | null {
-  const directCandidates = [
-    record.ai_insights,
-    record.aiInsights,
-    asRecord(record.report)?.ai_insights,
-    asRecord(record.ai_report)?.ai_insights,
-  ];
-
-  for (const candidate of directCandidates) {
-    const normalized = normalizeAIInsights(candidate);
-
-    if (normalized) {
-      return normalized;
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1200);
+    } catch {
+      setCopied(false);
     }
   }
 
-  return null;
+  return (
+    <button
+      type="button"
+      className="report-copy"
+      onClick={() => void copy()}
+      disabled={!raw}
+    >
+      {copied ? 'COPIED' : 'COPY'}
+    </button>
+  );
 }
 
-function priorityClass(
-  priority: string | undefined,
+function Section({
+  number,
+  title,
+  description,
+  children,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className="report-section"
+      id={`report-section-${number}`}
+    >
+      <div className="report-section-head">
+        <span className="report-section-number">
+          {number}
+        </span>
+
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
+function Metric({
+  label,
+  content,
+}: {
+  label: string;
+  content: string;
+}) {
+  return (
+    <div className="report-metric">
+      <span>{label}</span>
+      <strong>{content}</strong>
+    </div>
+  );
+}
+
+function Missing({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="report-missing">
+      <Status tone="missing">NOT RECORDED</Status>
+
+      <strong>{title}</strong>
+
+      <p>{detail}</p>
+    </div>
+  );
+}
+
+function checkStatus(
+  checks: Dict,
+  key: string,
 ): string {
-  const normalized =
-    priority?.trim().toLowerCase();
-
-  if (normalized === 'high') {
-    return 'reports-ai-priority reports-ai-priority-high';
-  }
-
-  if (normalized === 'medium') {
-    return 'reports-ai-priority reports-ai-priority-medium';
-  }
-
-  if (normalized === 'low') {
-    return 'reports-ai-priority reports-ai-priority-low';
-  }
-
-  return 'reports-ai-priority';
+  return String(checks[key] ?? 'not_recorded').toLowerCase();
 }
 
-function getAIChangeItems(
-  insights: AIInsights | null,
-): AIChange[] {
-  return insights?.changes_explained ?? [];
-}
-
-function getAIRecommendationItems(
-  insights: AIInsights | null,
-): AIRecommendation[] {
-  return insights?.recommendations ?? [];
-}
-
-export function ReportDocument({
-  project,
-  version,
-}: ReportDocumentProps) {
-  const record = version as AnyRecord;
-
-  const dvc = asRecord(record.dvc_state);
-  const dataset = asRecord(record.dataset);
-  const dataQuality = asRecord(record.data_quality);
-  const preparation = asRecord(record.preparation);
-  const training = asRecord(record.training);
-  const evaluation = asRecord(record.evaluation);
-  const git = asRecord(record.git);
-
-  const rows =
-    firstValue(record, [
-      'rows',
-      'row_count',
-      'rows_count',
-    ]) ??
-    firstValue(dataset, [
-      'rows',
-      'row_count',
-    ]);
-
-  const columns =
-    firstValue(record, [
-      'columns',
-      'column_count',
-      'columns_count',
-    ]) ??
-    firstValue(dataset, [
-      'columns',
-      'column_count',
-    ]);
-
-  const missing =
-    firstValue(record, [
-      'missing',
-      'missing_values',
-      'missing_count',
-    ]) ??
-    firstValue(dataQuality, [
-      'missing',
-      'missing_values',
-      'missing_count',
-    ]);
-
-  const duplicates =
-    firstValue(record, [
-      'duplicates',
-      'duplicate_count',
-    ]) ??
-    firstValue(dataQuality, [
-      'duplicates',
-      'duplicate_count',
-    ]);
-
-  const datasetName =
-    firstValue(dataset, [
-      'name',
-      'filename',
-      'file_name',
-    ]) ??
-    firstValue(record, [
-      'dataset_name',
-      'filename',
-    ]);
-
-  const datasetFormat =
-    firstValue(dataset, [
-      'format',
-      'file_format',
-    ]) ??
-    firstValue(record, [
-      'dataset_format',
-      'format',
-    ]);
-
-  const datasetPath =
-    firstValue(dataset, [
-      'path',
-      'file_path',
-    ]) ??
-    firstValue(record, [
-      'dataset_path',
-      'path',
-    ]);
-
-  const validity =
-    firstValue(record, [
-      'validity',
-      'validation_status',
-    ]) ??
-    firstValue(dataQuality, [
-      'validity',
-      'status',
-    ]);
-
-  const qualityStatus =
-    firstValue(dataQuality, [
-      'status',
-      'quality',
-      'quality_score',
-    ]) ??
-    'not available';
-
-  const preparationHistory =
-    firstValue(record, [
-      'preparation_history',
-      'operations',
-    ]) ??
-    firstValue(preparation, [
-      'history',
-      'operations',
-      'steps',
-    ]);
-
-  const gitCommit =
-    firstValue(record, [
-      'git_commit',
-      'commit',
-    ]) ??
-    firstValue(git, [
-      'commit',
-      'commit_hash',
-    ]) ??
-    version.git_commit;
-
-  const trackedFiles = getTrackedFiles(dvc);
-
-  const aiInsights = getAIInsights(record);
-  const aiChanges = getAIChangeItems(aiInsights);
-  const aiRecommendations =
-    getAIRecommendationItems(aiInsights);
-
-  const aiAvailable =
-    aiInsights?.status === 'success';
+function isRecorded(
+  checks: Dict,
+  key: string,
+): boolean {
+  const status = checkStatus(checks, key);
 
   return (
-    <article className="reports-document">
-      <section className="reports-report-header">
-        <div className="reports-report-title">
-          <div className="reports-eyebrow">
-            03 DETAILED VERSION REPORT
-          </div>
+    status === 'recorded' ||
+    status === 'available' ||
+    status === 'assessable'
+  );
+}
 
-          <h1>REPORT</h1>
+function changedFilePath(raw: unknown): string {
+  const file = dict(raw);
+
+  return value(
+    file.path ??
+      file.file_path ??
+      file.name ??
+      raw,
+    'Not recorded',
+  );
+}
+
+function changedFileStatus(raw: unknown): string {
+  const file = dict(raw);
+
+  return value(file.status, '—');
+}
+
+function ReportDocument({
+  project,
+  version,
+  onBack,
+}: Props) {
+  /*
+   * The backend version report is the source of truth.
+   *
+   * IMPORTANT:
+   * Do not reconstruct evidence completeness from the
+   * existence of frontend objects. The backend already
+   * determines which evidence sections are recorded.
+   */
+  const rawVersion = dict(version);
+
+  const dataset = dict(rawVersion.dataset);
+  const git = dict(rawVersion.git);
+  const dvc = dict(rawVersion.dvc);
+  const dvcState = dict(rawVersion.dvc_state);
+
+  const resultEvidence = dict(
+    rawVersion.result_evidence,
+  );
+
+  const evidenceCompleteness = dict(
+    rawVersion.evidence_completeness,
+  );
+
+  const checks = dict(
+    evidenceCompleteness.checks,
+  );
+
+  const model = dict(resultEvidence.model);
+  const metrics = dict(resultEvidence.metrics);
+  const evaluation = dict(resultEvidence.evaluation);
+
+  const preparation = list(
+    pick(rawVersion, [
+      'preparation.operations',
+      'preparation_evidence.operations',
+      'preparation_operations',
+    ]),
+  );
+
+  const changedFiles = list(
+    git.changed_files ??
+      pick(rawVersion, [
+        'changed_files',
+      ]),
+  );
+
+  const columns = list(dataset.columns);
+
+  const datasetFiles = list(dataset.files);
+  const firstDatasetFile = dict(datasetFiles[0]);
+  const datasetFileDvc = dict(
+    firstDatasetFile.dvc,
+  );
+
+  const trackedFiles = list(dvc.tracked_files);
+  const firstTrackedFile = dict(
+    trackedFiles[0],
+  );
+
+  /*
+   * Backend-authoritative evidence state.
+   */
+  const recordedCount =
+    typeof evidenceCompleteness.recorded_sections ===
+      'number'
+      ? evidenceCompleteness.recorded_sections
+      : 0;
+
+  const totalCount =
+    typeof evidenceCompleteness.total_sections ===
+      'number'
+      ? evidenceCompleteness.total_sections
+      : 9;
+
+  const completenessStatus = value(
+    evidenceCompleteness.status,
+    recordedCount === totalCount
+      ? 'complete'
+      : recordedCount > 0
+        ? 'partial'
+        : 'not_available',
+  ).toLowerCase();
+
+  const datasetRecorded = isRecorded(
+    checks,
+    'dataset',
+  );
+
+  const dataQualityRecorded = isRecorded(
+    checks,
+    'data_quality',
+  );
+
+  const preparationRecorded = isRecorded(
+    checks,
+    'preparation',
+  );
+
+  const modelRecorded = isRecorded(
+    checks,
+    'model',
+  );
+
+  const metricsRecorded = isRecorded(
+    checks,
+    'metrics',
+  );
+
+  const evaluationRecorded = isRecorded(
+    checks,
+    'evaluation',
+  );
+
+  const gitRecorded = isRecorded(
+    checks,
+    'git',
+  );
+
+  const dvcRecorded = isRecorded(
+    checks,
+    'dvc',
+  );
+
+  const datasetPath = value(
+    pick(dataset, [
+      'path',
+      'file_path',
+      'dataset_path',
+    ]),
+    'Dataset path not recorded',
+  );
+
+  const gitCommit = value(
+    rawVersion.git_commit ??
+      git.commit ??
+      git.sha,
+    'Not recorded',
+  );
+
+  /*
+   * DVC hash is nested inside tracked_files in the
+   * authoritative backend response.
+   */
+  const dvcHash = value(
+    firstTrackedFile.md5 ??
+      datasetFileDvc.md5 ??
+      dvc.md5 ??
+      dvc.hash ??
+      dvc.checksum ??
+      dvcState.md5,
+    'Not recorded',
+  );
+
+  const dvcFile = value(
+    firstTrackedFile.dvc_file ??
+      datasetFileDvc.dvc_file ??
+      dvc.dvc_file ??
+      dvcState.dvc_file,
+    'Not recorded',
+  );
+
+  const dvcDataPath = value(
+    firstTrackedFile.data_path ??
+      datasetFileDvc.data_path ??
+      dvc.data_path,
+    datasetPath,
+  );
+
+  const dvcStatus = value(
+    dvc.status ??
+      dvcState.status,
+    'Not recorded',
+  );
+
+  const gitAuthor = value(
+    git.author ??
+      git.author_name,
+    'Not recorded',
+  );
+
+  const gitMessage = value(
+    git.message ??
+      git.commit_message ??
+      rawVersion.description,
+    'Not recorded',
+  );
+
+  const gitTime = formatDate(
+    git.committed_at ??
+      git.commit_time ??
+      git.date ??
+      rawVersion.created_at,
+  );
+
+  const datasetSize = value(
+    pick(dataset, [
+      'size_bytes',
+      'size',
+    ]),
+    'Not recorded',
+  );
+
+  const datasetRows = value(
+    pick(dataset, [
+      'row_count',
+      'rows',
+    ]),
+    'Not recorded',
+  );
+
+  const datasetColumns = value(
+    pick(dataset, [
+      'column_count',
+      'columns_count',
+    ]),
+    'Not recorded',
+  );
+
+  const datasetFormat = value(
+    pick(dataset, [
+      'format',
+      'file_format',
+    ]),
+    'Not recorded',
+  );
+
+  const missingValues = value(
+    pick(dataset, [
+      'missing_values',
+      'missing_count',
+    ]),
+    'Not recorded',
+  );
+
+  const duplicateRows = value(
+    pick(dataset, [
+      'duplicate_rows',
+      'duplicates',
+    ]),
+    'Not recorded',
+  );
+
+  const reportSections = [
+    ['01', 'Version snapshot'],
+    ['02', 'Dataset evidence'],
+    ['03', 'DVC provenance'],
+    ['04', 'Git provenance'],
+    ['05', 'Preparation'],
+    ['06', 'Model evidence'],
+    ['07', 'Metrics'],
+    ['08', 'Evaluation evidence'],
+    ['09', 'Lineage'],
+    ['10', 'Evidence map'],
+    ['11', 'AI interpretation'],
+  ] as const;
+
+  /*
+   * Evidence Map deliberately follows the backend's
+   * nine-section completeness contract.
+   */
+  const evidenceMap = [
+    [
+      'Version identity',
+      checkStatus(checks, 'version_identity'),
+    ],
+    [
+      'Dataset',
+      checkStatus(checks, 'dataset'),
+    ],
+    [
+      'Data quality',
+      checkStatus(checks, 'data_quality'),
+    ],
+    [
+      'Preparation',
+      checkStatus(checks, 'preparation'),
+    ],
+    [
+      'Model evidence',
+      checkStatus(checks, 'model'),
+    ],
+    [
+      'Metrics',
+      checkStatus(checks, 'metrics'),
+    ],
+    [
+      'Evaluation',
+      checkStatus(checks, 'evaluation'),
+    ],
+    [
+      'Git provenance',
+      checkStatus(checks, 'git'),
+    ],
+    [
+      'DVC provenance',
+      checkStatus(checks, 'dvc'),
+    ],
+  ] as const;
+
+  const evidenceStatusLabel =
+    completenessStatus === 'complete'
+      ? 'COMPLETE'
+      : completenessStatus === 'partial'
+        ? 'PARTIAL'
+        : 'NOT AVAILABLE';
+
+  const resultEvidenceStatus = value(
+    resultEvidence.status,
+    'not_recorded',
+  ).toUpperCase();
+
+  return (
+    <article className="report-document">
+      <header className="report-hero">
+        <div className="report-topbar">
+          <button
+            type="button"
+            className="report-back"
+            onClick={onBack}
+          >
+            ← VERSION HISTORY
+          </button>
+
+          <span>DETAILED VERSION REPORT</span>
         </div>
 
-        <div className="reports-report-header-grid">
-          <div className="reports-meta-cell">
-            <div className="reports-meta-label">
-              PROJECT
+        <div className="report-hero-grid">
+          <div>
+            <div className="report-breadcrumb">
+              DATAGIT / EVIDENCE / VERSION{' '}
+              {String(
+                rawVersion.version_number,
+              ).padStart(2, '0')}
             </div>
 
-            <div className="reports-meta-value">
-              {project?.name ?? '—'}
-            </div>
-          </div>
+            <h1>{project.name}</h1>
 
-          <div className="reports-meta-cell">
-            <div className="reports-meta-label">
-              VERSION
-            </div>
+            <div className="report-title-line">
+              <strong>
+                VERSION{' '}
+                {String(
+                  rawVersion.version_number,
+                ).padStart(2, '0')}
+              </strong>
 
-            <div className="reports-meta-value">
-              {versionLabel(version.version_number)}
-            </div>
-          </div>
-
-          <div className="reports-meta-cell">
-            <div className="reports-meta-label">
-              GIT
-            </div>
-
-            <div className="reports-meta-value">
-              {textValue(gitCommit)}
+              <span>
+                {value(
+                  rawVersion.description,
+                  'No description recorded.',
+                )}
+              </span>
             </div>
           </div>
 
-          <div className="reports-meta-cell">
-            <div className="reports-meta-label">
-              CREATED
-            </div>
+          <div className="report-hero-meta">
+            <Status tone="ok">
+              FINALIZED
+            </Status>
 
-            <div className="reports-meta-value">
-              {textValue(version.created_at)}
-            </div>
-          </div>
-        </div>
-      </section>
+            <span>
+              {formatDate(
+                rawVersion.created_at,
+              )}
+            </span>
 
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            01
-          </span>
-
-          <h2 className="reports-section-title">
-            EXECUTIVE SUMMARY
-          </h2>
-        </div>
-
-        <div className="reports-summary">
-          {textValue(
-            firstValue(record, [
-              'summary',
-              'description',
-              'message',
-            ]),
-          )}
-        </div>
-
-        <div
-          className="reports-metric-strip"
-          style={{ marginTop: 16 }}
-        >
-          <div className="reports-metric">
-            <div className="reports-metric-label">
-              ROWS
-            </div>
-
-            <div className="reports-metric-value">
-              {textValue(rows)}
-            </div>
-          </div>
-
-          <div className="reports-metric">
-            <div className="reports-metric-label">
-              COLUMNS
-            </div>
-
-            <div className="reports-metric-value">
-              {textValue(columns)}
-            </div>
-          </div>
-
-          <div className="reports-metric">
-            <div className="reports-metric-label">
-              MISSING
-            </div>
-
-            <div className="reports-metric-value">
-              {textValue(missing)}
-            </div>
-          </div>
-
-          <div className="reports-metric">
-            <div className="reports-metric-label">
-              DUPLICATES
-            </div>
-
-            <div className="reports-metric-value">
-              {textValue(duplicates)}
-            </div>
-          </div>
-
-          <div className="reports-metric">
-            <div className="reports-metric-label">
-              VALIDITY
-            </div>
-
-            <div className="reports-metric-value">
-              {textValue(validity)}
-            </div>
+            <span>
+              EVIDENCE {recordedCount}/{totalCount}{' '}
+              RECORDED
+            </span>
           </div>
         </div>
-      </section>
 
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            02
-          </span>
+        <div className="report-summary-grid">
+          <Metric
+            label="GIT"
+            content={shortHash(gitCommit)}
+          />
 
-          <h2 className="reports-section-title">
-            DATASET SNAPSHOT
-          </h2>
+          <Metric
+            label="DVC"
+            content={
+              dvcRecorded
+                ? shortHash(dvcHash)
+                : 'Not recorded'
+            }
+          />
+
+          <Metric
+            label="DATASET"
+            content={
+              datasetRecorded
+                ? datasetPath
+                : 'Not recorded'
+            }
+          />
+
+          <Metric
+            label="STATUS"
+            content={evidenceStatusLabel}
+          />
         </div>
+      </header>
 
-        <div className="reports-info-grid">
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              NAME
-            </div>
+      <div className="report-layout">
+        <aside className="report-sidebar">
+          <div className="report-index">
+            <span className="report-sidebar-label">
+              REPORT INDEX
+            </span>
 
-            <div className="reports-info-value">
-              {textValue(datasetName)}
-            </div>
+            {reportSections.map(
+              ([number, title]) => (
+                <a
+                  key={number}
+                  href={`#report-section-${number}`}
+                >
+                  <span>{number}</span>
+                  {title}
+                </a>
+              ),
+            )}
           </div>
 
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              FORMAT
-            </div>
+          <div className="report-sidebar-card">
+            <span className="report-sidebar-label">
+              EVIDENCE STATUS
+            </span>
 
-            <div className="reports-info-value">
-              {textValue(datasetFormat)}
-            </div>
-          </div>
+            <Status
+              tone={
+                completenessStatus ===
+                'complete'
+                  ? 'ok'
+                  : 'missing'
+              }
+            >
+              {evidenceStatusLabel}
+            </Status>
 
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              PATH
-            </div>
+            <strong className="report-sidebar-count">
+              {recordedCount}/{totalCount}
+            </strong>
 
-            <div className="reports-info-value">
-              {textValue(datasetPath)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              ROWS
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(rows)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              COLUMNS
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(columns)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              QUALITY
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(qualityStatus)}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            03
-          </span>
-
-          <h2 className="reports-section-title">
-            DATA QUALITY
-          </h2>
-        </div>
-
-        <div className="reports-info-grid">
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              ROWS
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(rows)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              COLUMNS
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(columns)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              MISSING VALUES
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(missing)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              DUPLICATES
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(duplicates)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              VALIDITY
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(validity)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              STATUS
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(qualityStatus)}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            04
-          </span>
-
-          <h2 className="reports-section-title">
-            PREPARATION HISTORY
-          </h2>
-        </div>
-
-        {preparationHistory ? (
-          <pre className="reports-code">
-            {Array.isArray(preparationHistory)
-              ? renderArray(preparationHistory)
-              : typeof preparationHistory ===
-                  'object'
-                ? renderObject(preparationHistory)
-                : textValue(preparationHistory)}
-          </pre>
-        ) : (
-          <div className="reports-empty">
-            <p className="reports-empty-title">
-              PREPARATION DETAILS NOT AVAILABLE
+            <p>
+              Recorded facts stay separate
+              from missing evidence. Missing
+              evidence does not imply that an
+              action did not happen.
             </p>
-
-            <p className="reports-empty-text">
-              No preparation history is recorded
-              for this version.
-            </p>
           </div>
-        )}
-      </section>
+        </aside>
 
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            05
-          </span>
+        <main className="report-main">
+          <Section
+            number="01"
+            title="Version Snapshot"
+            description="Recorded state of this exact version."
+          >
+            <div className="report-card-grid report-card-grid-6">
+              <Metric
+                label="VERSION"
+                content={`V${rawVersion.version_number}`}
+              />
 
-          <h2 className="reports-section-title">
-            TRAINING / EVALUATION
-          </h2>
-        </div>
+              <Metric
+                label="STATUS"
+                content="FINALIZED"
+              />
 
-        {training || evaluation ? (
-          <div className="reports-info-grid">
-            <div className="reports-info-item">
-              <div className="reports-info-label">
-                TRAINING
+              <Metric
+                label="DATASETS"
+                content={
+                  datasetRecorded
+                    ? '1'
+                    : '0'
+                }
+              />
+
+              <Metric
+                label="MODEL EVIDENCE"
+                content={
+                  modelRecorded
+                    ? 'Recorded'
+                    : 'Not recorded'
+                }
+              />
+
+              <Metric
+                label="METRICS"
+                content={
+                  metricsRecorded
+                    ? 'Recorded'
+                    : 'Not recorded'
+                }
+              />
+
+              <Metric
+                label="EVALUATION"
+                content={
+                  evaluationRecorded
+                    ? 'Recorded'
+                    : 'Not recorded'
+                }
+              />
+            </div>
+
+            <div className="report-card-grid report-card-grid-3 report-space-top">
+              <Metric
+                label="PREPARATION OPS"
+                content={String(
+                  preparation.length,
+                )}
+              />
+
+              <Metric
+                label="CHANGED FILES"
+                content={String(
+                  changedFiles.length,
+                )}
+              />
+
+              <Metric
+                label="EVIDENCE"
+                content={`${recordedCount}/${totalCount}`}
+              />
+            </div>
+          </Section>
+
+          <Section
+            number="02"
+            title="Dataset Evidence"
+            description="Profiled facts about the dataset associated with this version."
+          >
+            {datasetRecorded ? (
+              <>
+                <div className="report-card report-dataset-title">
+                  <span>DATASET</span>
+
+                  <strong>
+                    {datasetPath}
+                  </strong>
+                </div>
+
+                <div className="report-card-grid report-card-grid-6">
+                  <Metric
+                    label="ROWS"
+                    content={datasetRows}
+                  />
+
+                  <Metric
+                    label="COLUMNS"
+                    content={datasetColumns}
+                  />
+
+                  <Metric
+                    label="FORMAT"
+                    content={datasetFormat}
+                  />
+
+                  <Metric
+                    label="SIZE"
+                    content={`${datasetSize} bytes`}
+                  />
+
+                  <Metric
+                    label="MISSING VALUES"
+                    content={missingValues}
+                  />
+
+                  <Metric
+                    label="DUPLICATE ROWS"
+                    content={duplicateRows}
+                  />
+                </div>
+
+                <div className="report-card report-column-card">
+                  <span>DATASET COLUMNS</span>
+
+                  <div className="report-column-list">
+                    {columns.length ? (
+                      columns.map(
+                        (column, index) => (
+                          <div
+                            key={`${String(
+                              column,
+                            )}-${index}`}
+                          >
+                            <small>
+                              {String(
+                                index + 1,
+                              ).padStart(2, '0')}
+                            </small>
+
+                            <strong>
+                              {value(column)}
+                            </strong>
+                          </div>
+                        ),
+                      )
+                    ) : (
+                      <span>
+                        Not recorded
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="report-status-row">
+                  <Status tone="ok">
+                    DATASET RECORDED
+                  </Status>
+
+                  <Status
+                    tone={
+                      dataQualityRecorded
+                        ? 'ok'
+                        : 'missing'
+                    }
+                  >
+                    {dataQualityRecorded
+                      ? 'DATA QUALITY RECORDED'
+                      : 'DATA QUALITY NOT RECORDED'}
+                  </Status>
+                </div>
+              </>
+            ) : (
+              <Missing
+                title="Dataset profile not recorded"
+                detail="No deterministic dataset profile is attached to this version."
+              />
+            )}
+          </Section>
+
+          <Section
+            number="03"
+            title="DVC Provenance"
+            description="The dataset identity anchoring this version."
+          >
+            <div className="report-card-grid report-card-grid-3">
+              <Metric
+                label="DVC HASH"
+                content={
+                  dvcRecorded
+                    ? dvcHash
+                    : 'Not recorded'
+                }
+              />
+
+              <Metric
+                label="DVC FILE"
+                content={dvcFile}
+              />
+
+              <Metric
+                label="DATA PATH"
+                content={dvcDataPath}
+              />
+            </div>
+
+            <div className="report-card report-space-top">
+              <div className="report-card-grid report-card-grid-2">
+                <Metric
+                  label="REPOSITORY"
+                  content={
+                    dvc.is_repository === true
+                      ? 'DVC repository'
+                      : 'Not recorded'
+                  }
+                />
+
+                <Metric
+                  label="STATUS"
+                  content={dvcStatus}
+                />
+              </div>
+            </div>
+
+            <div className="report-status-row">
+              <Status
+                tone={
+                  dvcRecorded
+                    ? 'ok'
+                    : 'missing'
+                }
+              >
+                {dvcRecorded
+                  ? 'RECORDED'
+                  : 'NOT RECORDED'}
+              </Status>
+
+              {dvcRecorded ? (
+                <CopyButton raw={dvcHash} />
+              ) : null}
+            </div>
+          </Section>
+
+          <Section
+            number="04"
+            title="Git Provenance"
+            description="The code state linked to this exact version."
+          >
+            <div className="report-commit-line">
+              <div>
+                <span>COMMIT</span>
+
+                <strong>
+                  {gitCommit}
+                </strong>
               </div>
 
-              <div className="reports-info-value">
-                {renderObject(training)}
-              </div>
+              <CopyButton raw={gitCommit} />
             </div>
 
-            <div className="reports-info-item">
-              <div className="reports-info-label">
-                EVALUATION
-              </div>
+            <div className="report-card-grid report-card-grid-3">
+              <Metric
+                label="AUTHOR"
+                content={gitAuthor}
+              />
 
-              <div className="reports-info-value">
-                {renderObject(evaluation)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="reports-empty">
-            <p className="reports-empty-title">
-              NO TRAINING RUN RECORDED
-            </p>
+              <Metric
+                label="COMMITTED"
+                content={gitTime}
+              />
 
-            <p className="reports-empty-text">
-              No training or evaluation evidence is
-              recorded for this version.
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            06
-          </span>
-
-          <h2 className="reports-section-title">
-            GIT / DVC PROVENANCE
-          </h2>
-        </div>
-
-        <div className="reports-provenance-grid">
-          <div className="reports-provenance-block">
-            <div className="reports-provenance-label">
-              GIT COMMIT
+              <Metric
+                label="MESSAGE"
+                content={gitMessage}
+              />
             </div>
 
-            <div className="reports-inline-code">
-              {textValue(gitCommit)}
-            </div>
-          </div>
+            <div className="report-card report-file-list">
+              <span>CHANGED FILES</span>
 
-          <div className="reports-provenance-block">
-            <div className="reports-provenance-label">
-              DVC STATUS
-            </div>
-
-            <div className="reports-inline-code">
-              {textValue(dvc?.status)}
-            </div>
-          </div>
-        </div>
-
-        <div className="reports-divider" />
-
-        {trackedFiles.length > 0 ? (
-          <div className="reports-table-wrap">
-            <table className="reports-table">
-              <thead>
-                <tr>
-                  <th>FILE</th>
-                  <th>STATUS</th>
-                  <th>HASH</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {trackedFiles.map(
+              {changedFiles.length ? (
+                changedFiles.map(
                   (file, index) => (
-                    <tr
-                      key={`${String(
-                        file.path ?? index,
+                    <div
+                      key={`${changedFilePath(
+                        file,
                       )}-${index}`}
                     >
-                      <td>
-                        {textValue(
-                          file.path ??
-                            file.file ??
-                            file.name,
-                        )}
-                      </td>
+                      <small>
+                        {String(
+                          index + 1,
+                        ).padStart(2, '0')}
+                      </small>
 
-                      <td>
-                        {textValue(file.status)}
-                      </td>
-
-                      <td>
-                        {textValue(
-                          file.hash ??
-                            file.md5 ??
-                            file.checksum,
+                      <strong>
+                        {changedFilePath(
+                          file,
                         )}
-                      </td>
-                    </tr>
+                      </strong>
+
+                      <em>
+                        {changedFileStatus(
+                          file,
+                        )}
+                      </em>
+                    </div>
+                  ),
+                )
+              ) : (
+                <p>Not recorded</p>
+              )}
+            </div>
+          </Section>
+
+          <Section
+            number="05"
+            title="Preparation"
+            description="Only operations explicitly recorded for this version are shown."
+          >
+            {preparation.length ? (
+              <div className="report-card report-list">
+                {preparation.map(
+                  (item, index) => (
+                    <div key={index}>
+                      <small>
+                        {String(
+                          index + 1,
+                        ).padStart(2, '0')}
+                      </small>
+
+                      <pre>
+                        {JSON.stringify(
+                          item,
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    </div>
                   ),
                 )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <pre className="reports-code">
-            {dvc
-              ? renderObject(dvc)
-              : 'DVC state not available.'}
-          </pre>
-        )}
-      </section>
+              </div>
+            ) : (
+              <Missing
+                title="No preparation operations"
+                detail="No preparation operations are attached to this version."
+              />
+            )}
+          </Section>
 
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            07
-          </span>
+          <Section
+            number="06"
+            title="Model Evidence"
+            description="Model information recorded at version finalization."
+          >
+            {modelRecorded ? (
+              <div className="report-card-grid report-card-grid-3">
+                {Object.entries(model).map(
+                  ([key, item]) => (
+                    <Metric
+                      key={key}
+                      label={key
+                        .replaceAll('_', ' ')
+                        .toUpperCase()}
+                      content={value(item)}
+                    />
+                  ),
+                )}
+              </div>
+            ) : (
+              <Missing
+                title="Model evidence not recorded"
+                detail="This does not imply that training failed or did not happen."
+              />
+            )}
+          </Section>
 
-          <h2 className="reports-section-title">
-            VERSION METADATA
-          </h2>
-        </div>
+          <Section
+            number="07"
+            title="Metrics"
+            description="Recorded result metrics such as accuracy, precision, recall, F1-score, or loss."
+          >
+            {metricsRecorded ? (
+              <div className="report-card-grid report-card-grid-4">
+                {Object.entries(metrics).map(
+                  ([key, item]) => (
+                    <Metric
+                      key={key}
+                      label={key
+                        .replaceAll('_', ' ')
+                        .toUpperCase()}
+                      content={value(item)}
+                    />
+                  ),
+                )}
+              </div>
+            ) : (
+              <Missing
+                title="Metrics not recorded"
+                detail="Performance change cannot be concluded from DATAGIT evidence."
+              />
+            )}
+          </Section>
 
-        <div className="reports-info-grid">
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              ID
+          <Section
+            number="08"
+            title="Evaluation Evidence"
+            description="Recorded evaluation outputs and conclusions for this version."
+          >
+            <div className="report-card report-space-top">
+              <div className="report-card-grid report-card-grid-3">
+                <Metric
+                  label="RESULT EVIDENCE"
+                  content={resultEvidenceStatus}
+                />
+              </div>
             </div>
 
-            <div className="reports-info-value">
-              {textValue(version.id)}
-            </div>
-          </div>
+            {evaluationRecorded ? (
+              <div className="report-card report-json">
+                {Object.entries(evaluation).map(
+                  ([key, item]) => (
+                    <div key={key}>
+                      <span>
+                        {key
+                          .replaceAll('_', ' ')
+                          .toUpperCase()}
+                      </span>
 
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              VERSION
-            </div>
+                      <strong>
+                        {value(item)}
+                      </strong>
+                    </div>
+                  ),
+                )}
+              </div>
+            ) : (
+              <Missing
+                title="Evaluation not recorded"
+                detail="No evaluation evidence is attached to this version."
+              />
+            )}
+          </Section>
 
-            <div className="reports-info-value">
-              {versionLabel(
-                version.version_number,
+          <Section
+            number="09"
+            title="Lineage"
+            description="Recorded links between project, data, code, and this version."
+          >
+            <div className="report-lineage">
+              {[
+                ['PROJECT', project.name],
+                ['DATASET', datasetPath],
+                [
+                  'DVC',
+                  dvcRecorded
+                    ? shortHash(dvcHash)
+                    : 'Not recorded',
+                ],
+                [
+                  'GIT',
+                  gitRecorded
+                    ? shortHash(gitCommit)
+                    : 'Not recorded',
+                ],
+                [
+                  `VERSION ${rawVersion.version_number}`,
+                  value(
+                    rawVersion.description,
+                    'No description recorded',
+                  ),
+                ],
+              ].map(
+                ([label, item], index, rows) => (
+                  <div
+                    key={label}
+                    className="report-lineage-step"
+                  >
+                    <div>
+                      <small>
+                        {String(
+                          index + 1,
+                        ).padStart(2, '0')}
+                      </small>
+
+                      <span>{label}</span>
+
+                      <strong>{item}</strong>
+                    </div>
+
+                    {index <
+                    rows.length - 1 ? (
+                      <b>↓</b>
+                    ) : null}
+                  </div>
+                ),
               )}
             </div>
-          </div>
+          </Section>
 
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              PROJECT ID
+          <Section
+            number="10"
+            title="Evidence Map"
+            description="The authoritative evidence completeness state returned by DATAGIT."
+          >
+            <div className="report-card-grid report-card-grid-3">
+              <Metric
+                label="STATUS"
+                content={evidenceStatusLabel}
+              />
+
+              <Metric
+                label="RECORDED SECTIONS"
+                content={String(
+                  recordedCount,
+                )}
+              />
+
+              <Metric
+                label="TOTAL SECTIONS"
+                content={String(
+                  totalCount,
+                )}
+              />
             </div>
 
-            <div className="reports-info-value">
-              {textValue(version.project_id)}
-            </div>
-          </div>
+            <div className="report-card report-space-top">
+              <div className="report-evidence-map">
+                {evidenceMap.map(
+                  ([label, status]) => {
+                    const recorded =
+                      status === 'recorded' ||
+                      status === 'available' ||
+                      status === 'assessable';
 
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              ML RUN ID
-            </div>
+                    return (
+                      <div key={label}>
+                        <span>{label}</span>
 
-            <div className="reports-info-value">
-              {textValue(version.ml_run_id)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              CREATED
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(version.created_at)}
-            </div>
-          </div>
-
-          <div className="reports-info-item">
-            <div className="reports-info-label">
-              DESCRIPTION
-            </div>
-
-            <div className="reports-info-value">
-              {textValue(version.description)}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            08
-          </span>
-
-          <h2 className="reports-section-title">
-            ADDITIONAL EVIDENCE
-          </h2>
-        </div>
-
-        <pre className="reports-code">
-          {JSON.stringify(record, null, 2)}
-        </pre>
-      </section>
-
-      <section className="reports-section reports-ai-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            AI
-          </span>
-
-          <h2 className="reports-section-title">
-            AI INSIGHTS
-          </h2>
-        </div>
-
-        <p className="reports-section-description">
-          DATAGIT AI ANALYSIS
-        </p>
-
-        {!aiInsights ? (
-          <div className="reports-empty">
-            <p className="reports-empty-title">
-              AI INSIGHTS NOT AVAILABLE
-            </p>
-
-            <p className="reports-empty-text">
-              Generate an AI interpretation from the
-              most recent successful Data Preparation
-              result.
-            </p>
-          </div>
-        ) : aiAvailable ? (
-          <div className="reports-ai">
-            <div className="reports-ai-status-row">
-              <span className="reports-ai-status-label">
-                STATUS
-              </span>
-
-              <span className="reports-ai-status">
-                SUCCESS
-              </span>
-            </div>
-
-            {aiInsights.summary ? (
-              <div className="reports-ai-block">
-                <div className="reports-ai-heading">
-                  SUMMARY
-                </div>
-
-                <p className="reports-ai-text">
-                  {aiInsights.summary}
-                </p>
-              </div>
-            ) : null}
-
-            {aiInsights.quality_assessment ? (
-              <div className="reports-ai-block">
-                <div className="reports-ai-heading">
-                  QUALITY ASSESSMENT
-                </div>
-
-                <p className="reports-ai-text">
-                  {aiInsights.quality_assessment}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="reports-ai-block">
-              <div className="reports-ai-heading">
-                CHANGES EXPLAINED
-              </div>
-
-              {aiChanges.length > 0 ? (
-                <div className="reports-ai-change-list">
-                  {aiChanges.map(
-                    (item, index) => (
-                      <div
-                        className="reports-ai-change"
-                        key={`change-${index}`}
-                      >
-                        <div className="reports-ai-change-title">
-                          <span className="reports-ai-index">
-                            {String(index + 1).padStart(
-                              2,
-                              '0',
-                            )}
-                          </span>
-
-                          <span>
-                            {item.change ??
-                              'Change detected'}
-                          </span>
-                        </div>
-
-                        {item.explanation ? (
-                          <p className="reports-ai-change-explanation">
-                            {item.explanation}
-                          </p>
-                        ) : null}
+                        <Status
+                          tone={
+                            recorded
+                              ? 'ok'
+                              : 'missing'
+                          }
+                        >
+                          {recorded
+                            ? 'RECORDED'
+                            : 'NOT RECORDED'}
+                        </Status>
                       </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <p className="reports-ai-muted">
-                  No additional changes were reported.
-                </p>
-              )}
-            </div>
-
-            <div className="reports-ai-block">
-              <div className="reports-ai-heading">
-                RECOMMENDATIONS
+                    );
+                  },
+                )}
               </div>
-
-              {aiRecommendations.length > 0 ? (
-                <div className="reports-ai-recommendation-list">
-                  {aiRecommendations.map(
-                    (item, index) => (
-                      <div
-                        className="reports-ai-recommendation"
-                        key={`recommendation-${index}`}
-                      >
-                        <div className="reports-ai-recommendation-top">
-                          <span className="reports-ai-recommendation-number">
-                            {String(index + 1).padStart(
-                              2,
-                              '0',
-                            )}
-                          </span>
-
-                          <span className="reports-ai-recommendation-title">
-                            {item.recommendation ??
-                              'Recommendation'}
-                          </span>
-
-                          <span
-                            className={priorityClass(
-                              item.priority,
-                            )}
-                          >
-                            {(
-                              item.priority ??
-                              'normal'
-                            ).toUpperCase()}
-                          </span>
-                        </div>
-
-                        {item.reason ? (
-                          <p className="reports-ai-recommendation-reason">
-                            {item.reason}
-                          </p>
-                        ) : null}
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <p className="reports-ai-muted">
-                  No recommendations were returned.
-                </p>
-              )}
             </div>
-          </div>
-        ) : (
-          <div className="reports-empty">
-            <p className="reports-empty-title">
-              AI ANALYSIS UNAVAILABLE
-            </p>
 
-            <p className="reports-empty-text">
-              {aiInsights.reason ??
-                'The deterministic report is available, but AI analysis is not available.'}
-            </p>
-          </div>
-        )}
-      </section>
+            <div className="report-card report-space-top">
+              <p>
+                Missing evidence is reported as
+                not recorded. It is not treated as
+                proof that the corresponding action
+                did not happen.
+              </p>
+            </div>
+          </Section>
 
-      <section className="reports-section">
-        <div className="reports-section-heading">
-          <span className="reports-section-number">
-            09
-          </span>
-
-          <h2 className="reports-section-title">
-            REPORT STATUS
-          </h2>
-        </div>
-
-        <div className="reports-empty">
-          <p className="reports-empty-title">
-            BACKEND VERSION REPORT
-          </p>
-
-          <p className="reports-empty-text">
-            This report is rendered directly from the
-            selected project and version records.
-            Deterministic backend evidence remains the
-            source of truth. AI interpretation is shown
-            separately when available.
-          </p>
-        </div>
-      </section>
+          <Section
+            number="11"
+            title="AI Interpretation"
+            description="Evidence-grounded interpretation of the selected version. DATAGIT AI does not track or invent the training process."
+          >
+            <AIInterpretationPanel
+              projectId={project.id}
+              version={version}
+            />
+          </Section>
+        </main>
+      </div>
     </article>
   );
 }
+
+export { ReportDocument };
+export default ReportDocument;

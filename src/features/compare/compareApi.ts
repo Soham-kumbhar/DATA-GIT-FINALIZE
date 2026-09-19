@@ -5,32 +5,98 @@ import type {
   ReportVersion,
 } from '../reports/types/report';
 
+
 export interface CompareRecommendation {
   recommendation: string;
   reason: string;
-  priority: 'high' | 'medium' | 'low' | string;
+  priority:
+    | 'high'
+    | 'medium'
+    | 'low'
+    | string;
 }
+
 
 export interface CompareAIContributor {
   factor: string;
-  direction: 'positive' | 'negative' | 'neutral' | 'unknown' | string;
+  direction:
+    | 'positive'
+    | 'negative'
+    | 'neutral'
+    | 'unknown'
+    | string;
   evidence: string[];
   reasoning: string;
-  confidence: 'high' | 'medium' | 'low' | string;
+  confidence:
+    | 'high'
+    | 'medium'
+    | 'low'
+    | string;
 }
 
+
+export interface CompareAIImpactAssessment {
+  area: string;
+  status:
+    | 'observed'
+    | 'unchanged'
+    | 'supported'
+    | 'unknown'
+    | 'not_assessable'
+    | string;
+  explanation: string;
+  evidence: string[];
+}
+
+
 export interface CompareAIInsights {
-  status?: 'success' | 'disabled' | 'unavailable' | string;
+  status?:
+    | 'success'
+    | 'disabled'
+    | 'unavailable'
+    | 'error'
+    | string;
+
   reason?: string | null;
+
+  summary?: string;
+
+  impact_assessment?:
+    CompareAIImpactAssessment[];
+
   root_cause?: {
     summary?: string;
-    contributors?: CompareAIContributor[];
+    contributors?:
+      CompareAIContributor[];
     overall_confidence?: string;
     limitations?: string[];
-    alternative_explanations?: string[];
+    alternative_explanations?:
+      string[];
   };
-  recommendations?: CompareRecommendation[];
+
+  recommendations?:
+    CompareRecommendation[];
 }
+
+
+export interface AIQuestionResponse {
+  status:
+    | 'success'
+    | 'unavailable'
+    | 'error'
+    | string;
+
+  question: string;
+
+  answer: string;
+
+  evidence: string[];
+
+  limitations: string[];
+
+  confidence: string;
+}
+
 
 export interface CompareDatasetProfile {
   dataset?: string;
@@ -39,11 +105,16 @@ export interface CompareDatasetProfile {
   columns?: string[];
   column_count?: number;
   dtypes?: Record<string, string>;
-  missing_values?: Record<string, number>;
+  missing_values?: Record<
+    string,
+    number
+  >;
   total_missing_values?: number;
   duplicate_rows?: number;
   target_column?: string | null;
-  target_distribution?: Record<string, number>;
+  target_distribution?:
+    Record<string, number>;
+
   numeric_statistics?: Record<
     string,
     {
@@ -54,14 +125,21 @@ export interface CompareDatasetProfile {
       std?: number;
     }
   >;
-  categorical_statistics?: Record<string, unknown>;
+
+  categorical_statistics?:
+    Record<string, unknown>;
+
   feature_columns?: string[];
-  feature_profile?: Record<string, unknown>;
+
+  feature_profile?:
+    Record<string, unknown>;
 }
+
 
 export interface CompareDatasetRow {
   [key: string]: unknown;
 }
+
 
 export interface CompareDatasetRecord {
   dataset?: string;
@@ -76,47 +154,69 @@ export interface CompareDatasetRecord {
   columns_removed?: string[];
   rows_added?: number;
   rows_removed?: number;
-  added_rows?: CompareDatasetRow[];
-  removed_rows?: CompareDatasetRow[];
+  added_rows?:
+    CompareDatasetRow[];
+  removed_rows?:
+    CompareDatasetRow[];
   [key: string]: unknown;
 }
 
+
 export interface CompareDatasetDiff {
   dataset_changed?: boolean;
-  datasets?: CompareDatasetRecord[];
+  datasets?:
+    CompareDatasetRecord[];
   [key: string]: unknown;
 }
+
 
 export interface CompareDatasetAnalysis {
   available?: boolean;
   rows_before?: number;
   rows_after?: number;
   row_delta?: number;
+
   columns_before?: string[];
   columns_after?: string[];
   columns_added?: string[];
   columns_removed?: string[];
-  missing_values_before?: Record<string, number>;
-  missing_values_after?: Record<string, number>;
-  missing_value_changes?: Record<string, unknown>;
+
+  missing_values_before?:
+    Record<string, number>;
+
+  missing_values_after?:
+    Record<string, number>;
+
+  missing_value_changes?:
+    Record<string, unknown>;
+
   duplicate_rows_before?: number;
   duplicate_rows_after?: number;
   duplicates_changed?: boolean;
+
   target_column_before?: string | null;
   target_column_after?: string | null;
-  target_distribution_before?: Record<string, number>;
-  target_distribution_after?: Record<string, number>;
-  target_distribution_changes?: Record<
-    string,
-    {
-      before?: number;
-      after?: number;
-      delta?: number;
-    }
-  >;
+
+  target_distribution_before?:
+    Record<string, number>;
+
+  target_distribution_after?:
+    Record<string, number>;
+
+  target_distribution_changes?:
+    Record<
+      string,
+      {
+        before?: number;
+        after?: number;
+        delta?: number;
+      }
+    >;
+
   feature_changes?: {
     features_added?: string[];
     features_removed?: string[];
+
     features_changed?: Record<
       string,
       Record<
@@ -131,33 +231,98 @@ export interface CompareDatasetAnalysis {
   };
 }
 
+
+export interface ComparePreparation {
+  available?: boolean;
+  status?:
+    | 'recorded'
+    | 'partial'
+    | 'unavailable'
+    | string;
+
+  changed?: boolean;
+
+  baseline?:
+    Record<string, unknown>[];
+
+  target?:
+    Record<string, unknown>[];
+
+  added?:
+    Record<string, unknown>[];
+
+  removed?:
+    Record<string, unknown>[];
+
+  modified?:
+    Array<{
+      operation?: string;
+      baseline?: Record<string, unknown>;
+      target?: Record<string, unknown>;
+    }>;
+
+  message?: string;
+}
+
+
 export interface ComparePerformance {
-  metrics_before?: Record<string, unknown>;
-  metrics_after?: Record<string, unknown>;
-  metric_changes?: Record<string, unknown>;
+  metrics_before?:
+    Record<string, unknown>;
+
+  metrics_after?:
+    Record<string, unknown>;
+
+  metric_changes?:
+    Record<string, unknown>;
+
   performance_changed?: boolean;
 }
+
 
 export interface CompareMLComparison {
   run_id_before?: number | null;
   run_id_after?: number | null;
+
   model_name_before?: string | null;
   model_name_after?: string | null;
+
   features_before?: string[];
   features_after?: string[];
+
   features_added?: string[];
   features_removed?: string[];
-  parameters_before?: Record<string, unknown>;
-  parameters_after?: Record<string, unknown>;
-  parameter_changes?: Record<string, unknown>;
-  performance_before?: Record<string, unknown>;
-  performance_after?: Record<string, unknown>;
-  performance_changes?: Record<string, unknown>;
-  other_metrics_before?: Record<string, unknown>;
-  other_metrics_after?: Record<string, unknown>;
-  other_metric_changes?: Record<string, unknown>;
-  evaluation?: Record<string, unknown>;
+
+  parameters_before?:
+    Record<string, unknown>;
+
+  parameters_after?:
+    Record<string, unknown>;
+
+  parameter_changes?:
+    Record<string, unknown>;
+
+  performance_before?:
+    Record<string, unknown>;
+
+  performance_after?:
+    Record<string, unknown>;
+
+  performance_changes?:
+    Record<string, unknown>;
+
+  other_metrics_before?:
+    Record<string, unknown>;
+
+  other_metrics_after?:
+    Record<string, unknown>;
+
+  other_metric_changes?:
+    Record<string, unknown>;
+
+  evaluation?:
+    Record<string, unknown>;
 }
+
 
 export interface ComparePayload {
   project_id: number;
@@ -171,55 +336,93 @@ export interface ComparePayload {
   git_commit_before?: string | null;
   git_commit_after?: string | null;
 
-  dvc_state_before?: Record<string, unknown> | null;
-  dvc_state_after?: Record<string, unknown> | null;
+  dvc_state_before?:
+    Record<string, unknown> | null;
+
+  dvc_state_after?:
+    Record<string, unknown> | null;
 
   changed_files?: string[];
   code_changed_files?: string[];
+
   code_patch?: string;
 
-  ml_run_before?: Record<string, unknown> | null;
-  ml_run_after?: Record<string, unknown> | null;
-  ml_comparison?: CompareMLComparison | null;
+  ml_run_before?:
+    Record<string, unknown> | null;
 
-  performance?: ComparePerformance | null;
+  ml_run_after?:
+    Record<string, unknown> | null;
 
-  dataset_diff?: CompareDatasetDiff | null;
+  ml_comparison?:
+    CompareMLComparison | null;
+
+  performance?:
+    ComparePerformance | null;
+
+  dataset_diff?:
+    CompareDatasetDiff | null;
 
   dataset_profiles?: {
-    before?: CompareDatasetProfile | null;
-    after?: CompareDatasetProfile | null;
+    before?:
+      CompareDatasetProfile | null;
+
+    after?:
+      CompareDatasetProfile | null;
   } | null;
 
-  dataset_analysis?: CompareDatasetAnalysis | null;
+  dataset_analysis?:
+    CompareDatasetAnalysis | null;
+
+  preparation?:
+    ComparePreparation | null;
 
   evidence_chain?: string[];
+
   changes?: string[];
 
-  ai_insights?: CompareAIInsights | null;
+  ai_insights?:
+    CompareAIInsights | null;
 
   [key: string]: unknown;
 }
 
-export async function getCompareProjects(): Promise<ReportProject[]> {
-  const response = await apiClient.get('/projects');
 
-  return Array.isArray(response.data)
-    ? (response.data as ReportProject[])
+export async function getCompareProjects():
+  Promise<ReportProject[]> {
+  const response =
+    await apiClient.get(
+      '/projects',
+    );
+
+  return Array.isArray(
+    response.data,
+  )
+    ? (
+        response.data as
+          ReportProject[]
+      )
     : [];
 }
+
 
 export async function getCompareVersions(
   projectId: number,
 ): Promise<ReportVersion[]> {
-  const response = await apiClient.get(
-    `/projects/${projectId}/versions`,
-  );
+  const response =
+    await apiClient.get(
+      `/projects/${projectId}/versions`,
+    );
 
-  return Array.isArray(response.data)
-    ? (response.data as ReportVersion[])
+  return Array.isArray(
+    response.data,
+  )
+    ? (
+        response.data as
+          ReportVersion[]
+      )
     : [];
 }
+
 
 export async function getVersionComparison(
   projectId: number,
@@ -227,16 +430,39 @@ export async function getVersionComparison(
   versionB: number,
   generateAI = true,
 ): Promise<ComparePayload> {
-  const response = await apiClient.get(
-    `/projects/${projectId}/versions/compare`,
-    {
-      params: {
+  const response =
+    await apiClient.get(
+      `/projects/${projectId}/versions/compare`,
+      {
+        params: {
+          version_1: versionA,
+          version_2: versionB,
+          generate_ai:
+            generateAI,
+        },
+      },
+    );
+
+  return response.data as
+    ComparePayload;
+}
+
+
+export async function askDatagitAI(
+  projectId: number,
+  versionA: number,
+  versionB: number,
+  question: string,
+): Promise<AIQuestionResponse> {
+  const response =
+    await apiClient.post<AIQuestionResponse>(
+      `/projects/${projectId}/versions/ask-ai`,
+      {
         version_1: versionA,
         version_2: versionB,
-        generate_ai: generateAI,
+        question,
       },
-    },
-  );
+    );
 
-  return response.data as ComparePayload;
+  return response.data;
 }

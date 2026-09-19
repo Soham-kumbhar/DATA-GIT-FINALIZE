@@ -28,26 +28,6 @@ function normalizeVersions(data: unknown): Version[] {
   return [];
 }
 
-export interface FinalizeVersionRequest {
-  description: string;
-  preparation_operations: Array<{
-    operation: string;
-    parameters: Record<string, unknown>;
-  }>;
-}
-
-export async function finalizeVersion(
-  projectId: number,
-  data: FinalizeVersionRequest,
-): Promise<Version> {
-  const response = await apiClient.post<Version>(
-    `/projects/${projectId}/versions/finalize`,
-    data,
-  );
-
-  return response.data;
-}
-
 export async function getVersions(
   projectId: number,
 ): Promise<Version[]> {
@@ -68,4 +48,3 @@ export async function getVersion(
 
   return response.data;
 }
-
