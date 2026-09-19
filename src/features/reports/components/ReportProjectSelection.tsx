@@ -255,176 +255,181 @@ export function ReportProjectSelection({
                 </div>
               ),
             )
-          : projects.map(
-              (project, index) => {
-                const version =
-                  latestVersions[
-                    project.id
-                  ] ?? null;
+          : [...projects]
+              .sort(
+                (a, b) =>
+                  a.id - b.id,
+              )
+              .map(
+                (project) => {
+                  const version =
+                    latestVersions[
+                      project.id
+                    ] ?? null;
 
-                const selected =
-                  selectedProjectId ===
-                  project.id;
+                  const selected =
+                    selectedProjectId ===
+                    project.id;
 
-                return (
-                  <button
-                    type="button"
-                    key={project.id}
-                    className={`report-project-card ${
-                      selected
-                        ? 'is-selected'
-                        : ''
-                    }`}
-                    onClick={() =>
-                      onSelect(
-                        project.id,
-                      )
-                    }
-                    aria-pressed={
-                      selected
-                    }
-                  >
-                    <span className="report-project-card-index">
-                      PROJECT {index + 1}
-                    </span>
-
-                    <span className="report-project-terminal">
-                      <span className="report-project-terminal-bar">
-                        <span className="report-project-terminal-lights">
-                          <i />
-                          <i />
-                          <i />
-                        </span>
-
-                        <span className="report-project-terminal-name">
-                          {project.name}
-                        </span>
-
-                        <span className="report-project-terminal-live">
-                          <b /> LIVE
-                        </span>
+                  return (
+                    <button
+                      type="button"
+                      key={project.id}
+                      className={`report-project-card ${
+                        selected
+                          ? 'is-selected'
+                          : ''
+                      }`}
+                      onClick={() =>
+                        onSelect(
+                          project.id,
+                        )
+                      }
+                      aria-pressed={
+                        selected
+                      }
+                    >
+                      <span className="report-project-card-index">
+                        PROJECT {project.id}
                       </span>
 
-                      <span className="report-project-terminal-body">
-                        <span className="report-project-command">
-                          &gt;_ report --project{' '}
-                          {project.id}
-                        </span>
+                      <span className="report-project-terminal">
+                        <span className="report-project-terminal-bar">
+                          <span className="report-project-terminal-lights">
+                            <i />
+                            <i />
+                            <i />
+                          </span>
 
-                        <span className="report-project-summary-box">
-                          <span className="report-project-summary-name">
+                          <span className="report-project-terminal-name">
                             {project.name}
                           </span>
 
-                          <span className="report-project-summary-description">
-                            {shortDescription(
-                              project,
-                            )}
+                          <span className="report-project-terminal-live">
+                            <b /> LIVE
+                          </span>
+                        </span>
+
+                        <span className="report-project-terminal-body">
+                          <span className="report-project-command">
+                            &gt;_ report --project{' '}
+                            {project.id}
                           </span>
 
-                          <span className="report-project-facts">
-                            <span>
-                              <em>
-                                Owner
-                              </em>
-
-                              <strong>
-                                LOCAL WORKSPACE
-                              </strong>
+                          <span className="report-project-summary-box">
+                            <span className="report-project-summary-name">
+                              {project.name}
                             </span>
 
-                            <span>
-                              <em>
-                                Dataset
-                              </em>
-
-                              <strong>
-                                {datasetLabel(
-                                  version,
-                                )}
-                              </strong>
-                            </span>
-
-                            <span>
-                              <em>
-                                Version
-                              </em>
-
-                              <strong>
-                                {version
-                                  ? `V${version.version_number}`
-                                  : '—'}
-                              </strong>
-                            </span>
-                          </span>
-
-                          <span className="report-project-status-block">
-                            <span className="report-project-status-label">
-                              VERSION STATUS
-                            </span>
-
-                            <strong
-                              className={
-                                versionStatus(
-                                  version,
-                                ) ===
-                                'FINALIZED'
-                                  ? 'is-positive'
-                                  : versionStatus(
-                                        version,
-                                      ) ===
-                                    'PARTIAL'
-                                  ? 'is-warning'
-                                  : ''
-                              }
-                            >
-                              <b>
-                                •
-                              </b>{' '}
-                              {versionStatus(
-                                version,
+                            <span className="report-project-summary-description">
+                              {shortDescription(
+                                project,
                               )}
-                            </strong>
-                          </span>
+                            </span>
 
-                          <span className="report-project-dates">
-                            <span>
-                              <em>
-                                CREATED
-                              </em>
+                            <span className="report-project-facts">
+                              <span>
+                                <em>
+                                  Owner
+                                </em>
 
-                              <strong>
-                                {relativeDate(
-                                  project.created_at,
+                                <strong>
+                                  LOCAL WORKSPACE
+                                </strong>
+                              </span>
+
+                              <span>
+                                <em>
+                                  Dataset
+                                </em>
+
+                                <strong>
+                                  {datasetLabel(
+                                    version,
+                                  )}
+                                </strong>
+                              </span>
+
+                              <span>
+                                <em>
+                                  Version
+                                </em>
+
+                                <strong>
+                                  {version
+                                    ? `V${version.version_number}`
+                                    : '—'}
+                                </strong>
+                              </span>
+                            </span>
+
+                            <span className="report-project-status-block">
+                              <span className="report-project-status-label">
+                                VERSION STATUS
+                              </span>
+
+                              <strong
+                                className={
+                                  versionStatus(
+                                    version,
+                                  ) ===
+                                  'FINALIZED'
+                                    ? 'is-positive'
+                                    : versionStatus(
+                                          version,
+                                        ) ===
+                                      'PARTIAL'
+                                    ? 'is-warning'
+                                    : ''
+                                }
+                              >
+                                <b>
+                                  •
+                                </b>{' '}
+                                {versionStatus(
+                                  version,
                                 )}
                               </strong>
                             </span>
 
-                            <span>
-                              <em>
-                                UPDATED
-                              </em>
+                            <span className="report-project-dates">
+                              <span>
+                                <em>
+                                  CREATED
+                                </em>
 
-                              <strong>
-                                {relativeDate(
-                                  project.updated_at,
-                                )}
-                              </strong>
+                                <strong>
+                                  {relativeDate(
+                                    project.created_at,
+                                  )}
+                                </strong>
+                              </span>
+
+                              <span>
+                                <em>
+                                  UPDATED
+                                </em>
+
+                                <strong>
+                                  {relativeDate(
+                                    project.updated_at,
+                                  )}
+                                </strong>
+                              </span>
                             </span>
-                          </span>
 
-                          <span className="report-project-open">
-                            {selected
-                              ? '[ Project Selected ]'
-                              : '[ Open Project → ]'}
+                            <span className="report-project-open">
+                              {selected
+                                ? '[ Project Selected ]'
+                                : '[ Open Project → ]'}
+                            </span>
                           </span>
                         </span>
                       </span>
-                    </span>
-                  </button>
-                );
-              },
-            )}
+                    </button>
+                  );
+                },
+              )}
       </div>
 
       {!loading &&

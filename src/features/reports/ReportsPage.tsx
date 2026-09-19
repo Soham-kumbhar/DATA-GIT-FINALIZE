@@ -14,7 +14,7 @@ import type {
 
 import { ReportProjectSelection } from './components/ReportProjectSelection';
 import { ReportVersionTimeline } from './components/ReportVersionTimeline';
-import { ReportDocument } from './components/ReportDocument';
+import ReportDocument from './components/ReportDocument';
 
 import './Reports.css';
 
@@ -41,10 +41,6 @@ export default function ReportsPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const [error, setError] = useState('');
-
-  // ============================================================
-  // LOAD PROJECTS
-  // ============================================================
 
   useEffect(() => {
     let active = true;
@@ -82,7 +78,9 @@ export default function ReportsPage() {
           return;
         }
 
-        setLatestVersions(Object.fromEntries(versionEntries));
+        setLatestVersions(
+          Object.fromEntries(versionEntries),
+        );
       } catch (err) {
         if (!active) {
           return;
@@ -107,10 +105,6 @@ export default function ReportsPage() {
     };
   }, []);
 
-  // ============================================================
-  // LOAD PROJECT VERSIONS
-  // ============================================================
-
   useEffect(() => {
     if (selectedProjectId === null) {
       setVersions([]);
@@ -126,7 +120,6 @@ export default function ReportsPage() {
       try {
         setLoadingVersions(true);
         setError('');
-
         setSelectedVersionId(null);
         setVersionDetail(null);
 
@@ -162,10 +155,6 @@ export default function ReportsPage() {
       active = false;
     };
   }, [selectedProjectId]);
-
-  // ============================================================
-  // LOAD SELECTED VERSION REPORT
-  // ============================================================
 
   useEffect(() => {
     if (
@@ -222,23 +211,10 @@ export default function ReportsPage() {
     };
   }, [selectedProjectId, selectedVersionId]);
 
-  // ============================================================
-  // SELECTED PROJECT
-  // ============================================================
-
   const selectedProject =
     projects.find(
       (project) => project.id === selectedProjectId,
     ) ?? null;
-
-  // ============================================================
-  // NAVIGATION
-  // ============================================================
-
-  function handleSelectProject(projectId: number) {
-    setSelectedProjectId(projectId);
-  }
-
 
   function handleBackToProjects() {
     setSelectedProjectId(null);
@@ -254,10 +230,6 @@ export default function ReportsPage() {
     setError('');
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <div className="reports-page">
       {error ? (
@@ -266,24 +238,15 @@ export default function ReportsPage() {
         </div>
       ) : null}
 
-      {/* ======================================================
-          PROJECT SELECTION
-          ====================================================== */}
-
       {!selectedProject ? (
         <ReportProjectSelection
           projects={projects}
           latestVersions={latestVersions}
           selectedProjectId={selectedProjectId}
           loading={loadingProjects}
-          onSelect={handleSelectProject}
-
+          onSelect={setSelectedProjectId}
         />
       ) : null}
-
-      {/* ======================================================
-          VERSION HISTORY
-          ====================================================== */}
 
       {selectedProject &&
       selectedVersionId === null ? (
@@ -296,10 +259,6 @@ export default function ReportsPage() {
           onBack={handleBackToProjects}
         />
       ) : null}
-
-      {/* ======================================================
-          VERSION REPORT
-          ====================================================== */}
 
       {selectedProject &&
       selectedVersionId !== null ? (
@@ -314,7 +273,10 @@ export default function ReportsPage() {
             </button>
 
             <div className="report-detail-loading-shell">
-              <span>LOADING VERSION REPORT</span>
+              <span>
+                LOADING VERSION REPORT
+              </span>
+
               <strong>
                 Reading deterministic evidence...
               </strong>
@@ -331,6 +293,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-
