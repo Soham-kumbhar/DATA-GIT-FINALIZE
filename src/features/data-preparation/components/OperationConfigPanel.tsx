@@ -1,4 +1,3 @@
-
 interface OperationConfigPanelProps {
   operation: string;
   parameters: Record<string, unknown>;
@@ -188,12 +187,6 @@ export function OperationConfigPanel({
   onChange,
 }: OperationConfigPanelProps) {
   switch (operation) {
-    /*
-     * ======================================================
-     * MISSING VALUES
-     * ======================================================
-     */
-
     case 'mice_imputation':
       return (
         <div>
@@ -281,12 +274,6 @@ export function OperationConfigPanel({
         </div>
       );
 
-    /*
-     * ======================================================
-     * DUPLICATES / COLUMNS
-     * ======================================================
-     */
-
     case 'remove_duplicates':
       return (
         <div>
@@ -297,10 +284,12 @@ export function OperationConfigPanel({
 
             <select
               id="duplicate-strategy"
-              value={getStringParameter(
-                parameters,
-                'strategy',
-              ) || 'keep_first'}
+              value={
+                getStringParameter(
+                  parameters,
+                  'strategy',
+                ) || 'keep_first'
+              }
               onChange={(event) =>
                 onChange(
                   updateParameter(
@@ -335,12 +324,6 @@ export function OperationConfigPanel({
         onChange,
         'Required. Enter columns that should be removed.',
       );
-
-    /*
-     * ======================================================
-     * OUTLIERS / TRANSFORMATIONS
-     * ======================================================
-     */
 
     case 'trim_outliers':
     case 'winsorize_outliers':
@@ -393,12 +376,6 @@ export function OperationConfigPanel({
         'Required. Select numeric columns for logarithmic transformation.',
       );
 
-    /*
-     * ======================================================
-     * STANDARDIZATION
-     * ======================================================
-     */
-
     case 'type_conversion':
       return (
         <div>
@@ -444,12 +421,6 @@ export function OperationConfigPanel({
         'Provide the target schema as JSON.',
       );
 
-    /*
-     * ======================================================
-     * ERRONEOUS DATA
-     * ======================================================
-     */
-
     case 'logical_rule_validation':
       return renderJsonField(
         'RULES',
@@ -486,12 +457,6 @@ export function OperationConfigPanel({
           )}
         </div>
       );
-
-    /*
-     * ======================================================
-     * SCALING / TRANSFORMATION
-     * ======================================================
-     */
 
     case 'min_max_scaling':
       return (
@@ -601,12 +566,6 @@ export function OperationConfigPanel({
         </div>
       );
 
-    /*
-     * ======================================================
-     * IMBALANCED DATA
-     * ======================================================
-     */
-
     case 'oversampling':
     case 'smote':
     case 'undersampling':
@@ -644,12 +603,6 @@ export function OperationConfigPanel({
           </div>
         </div>
       );
-
-    /*
-     * ======================================================
-     * UNKNOWN OPERATION
-     * ======================================================
-     */
 
     default:
       return (
